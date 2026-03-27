@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 async function getHandler(request: NextRequest) {
   try {
     const professionals = await prisma.professional.findMany({
-      where: { isVerified: false },
       include: {
         user: true,
         category: true,
@@ -28,7 +27,7 @@ async function getHandler(request: NextRequest) {
         nin: prof.nin || "N/A",
         cacNo: prof.cacImage ? "Provided" : "N/A",
         submittedDate: prof.user.createdAt,
-        status: "pending",
+        status: prof.isVerified ? "approved" : "pending",
         documents: documentCount,
       };
     });
