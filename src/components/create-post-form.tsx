@@ -73,15 +73,36 @@ export default function CreatePostForm({
 
     setIsSubmitting(true)
     try {
+      let finalMediaUrl = null;
+
+      if (mediaFile) {
+        const formData = new FormData()
+        formData.append("file", mediaFile)
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        const uploadData = await uploadRes.json()
+        
+        if (!uploadRes.ok || !uploadData.success) {
+          toast.error("Failed to upload media. Ensure the file is valid and try again.")
+          setIsSubmitting(false)
+          return
+        }
+        
+        finalMediaUrl = uploadData.data.url
+      }
+
       const payload = {
         providerId,
         providerName,
         businessName,
         verified,
         type: postType,
-        caption: data.caption,
-        mediaUrl: mediaPreview || data.mediaUrl || null,
-        mediaThumbnail: mediaPreview ? mediaPreview : null,
+        caption: data.caption || "",
+        mediaUrl: finalMediaUrl,
+        mediaThumbnail: finalMediaUrl ? finalMediaUrl.replace(/\.[^/.]+$/, ".jpg") : null,
       }
 
       const response = await fetch("/api/posts/create", {
