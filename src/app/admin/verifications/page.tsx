@@ -179,7 +179,7 @@ export default function VerificationsPage() {
             </div>
 
             {verification.status === "pending" && (
-              <div className="border-t border-border pt-4 flex gap-2">
+              <div className="border-t border-border pt-4 flex flex-wrap sm:flex-nowrap gap-2">
                 <Link
                   href={`/admin/verifications/${verification.id}`}
                   className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-sm font-medium flex items-center justify-center gap-2"

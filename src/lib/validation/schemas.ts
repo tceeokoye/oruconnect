@@ -35,12 +35,7 @@ export const registerSchema = z
   })
 
 export const createPostSchema = z.object({
-  caption: z.string().min(1, "Caption is required").max(500, "Caption must be less than 500 characters"),
-  type: z.enum(["text", "video", "video_with_text"], {
-    errorMap: () => ({ message: "Invalid post type" }),
-  }),
-  mediaUrl: z.string().url("Valid URL required").optional(),
-  mediaThumbnail: z.string().url("Valid URL required").optional(),
+  caption: z.string().max(500, "Caption must be less than 500 characters").optional().or(z.literal("")),
 })
 
 export const videoUploadSchema = z.object({
