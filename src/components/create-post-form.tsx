@@ -76,22 +76,41 @@ export default function CreatePostForm({
       let finalMediaUrl = null;
 
       if (mediaFile) {
+        // Step 1: Request signature securely from backend to avoid embedding secrets on frontend
+        const sigRes = await fetch("/api/upload/signature")
+        const sigData = await sigRes.json()
+
+        if (!sigData.success) {
+          toast.error("Failed to initialize secure upload channel: " + sigData.error)
+          setIsSubmitting(false)
+          return
+        }
+
+        // Step 2: Upload direct from browser to Cloudinary
         const formData = new FormData()
         formData.append("file", mediaFile)
+        formData.append("api_key", sigData.api_key)
+        formData.append("timestamp", sigData.timestamp.toString())
+        formData.append("signature", sigData.signature)
+        formData.append("folder", "oruconnect")
 
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
-        const uploadData = await uploadRes.json()
+        const cloudinaryRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/auto/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        )
         
-        if (!uploadRes.ok || !uploadData.success) {
-          toast.error("Failed to upload media. Ensure the file is valid and try again.")
+        const uploadData = await cloudinaryRes.json()
+        
+        if (!cloudinaryRes.ok) {
+          toast.error("Failed to stream massive media to cloud: " + (uploadData.error?.message || "Unknown Error"))
           setIsSubmitting(false)
           return
         }
         
-        finalMediaUrl = uploadData.data.url
+        finalMediaUrl = uploadData.secure_url
       }
 
       const payload = {
