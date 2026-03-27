@@ -1,0 +1,198 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Light Mode Colors */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0a1f44;
+  --primary-foreground: #ffffff;
+  --secondary: #12b76a;
+  --secondary-foreground: #ffffff;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --accent: #f4c430;
+  --accent-foreground: #0a1f44;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0a1f44;
+  --chart-1: #0a1f44;
+  --chart-2: #12b76a;
+  --chart-3: #f4c430;
+  --chart-4: #06b6d4;
+  --chart-5: #8b5cf6;
+  --radius: 0.625rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0a1f44;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #12b76a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0a1f44;
+}
+
+.dark {
+  /* Dark Mode Colors */
+  --background: #020617;
+  --foreground: #e5e7eb;
+  --card: #0f172a;
+  --card-foreground: #e5e7eb;
+  --popover: #0f172a;
+  --popover-foreground: #e5e7eb;
+  --primary: #1e3a8a;
+  --primary-foreground: #e5e7eb;
+  --secondary: #22c55e;
+  --secondary-foreground: #020617;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #facc15;
+  --accent-foreground: #020617;
+  --destructive: #f87171;
+  --destructive-foreground: #020617;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #1e3a8a;
+  --chart-1: #1e3a8a;
+  --chart-2: #22c55e;
+  --chart-3: #facc15;
+  --chart-4: #06b6d4;
+  --chart-5: #a78bfa;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-primary: #1e3a8a;
+  --sidebar-primary-foreground: #e5e7eb;
+  --sidebar-accent: #22c55e;
+  --sidebar-accent-foreground: #020617;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #1e3a8a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-poppins: "Poppins", "Poppins Fallback";
+  --font-inter: "Inter", "Inter Fallback";
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-poppins font-bold;
+  }
+}
+
+@layer components {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Updated gradient classes to use OruConnect brand colors */
+  .gradient-primary {
+    @apply bg-gradient-to-r from-primary to-secondary;
+  }
+
+  .gradient-secondary {
+    @apply bg-gradient-to-r from-secondary to-accent;
+  }
+
+  /* Updated button styles with OruConnect brand colors */
+  .btn-primary {
+    @apply px-6 py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2.5 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 transition-all duration-200;
+  }
+
+  .btn-accent {
+    @apply px-6 py-2.5 bg-accent text-accent-foreground rounded-lg font-semibold hover:bg-accent/90 transition-all duration-200;
+  }
+
+  .btn-outline {
+    @apply px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-semibold hover:bg-primary hover:text-white transition-all duration-200;
+  }
+
+  /* Updated card styles with premium appearance */
+  .card-premium {
+    @apply bg-card text-card-foreground border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300;
+  }
+
+  /* Badge styles */
+  .badge-verified {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-secondary/10 text-secondary rounded-full text-sm font-semibold;
+  }
+
+  .badge-pending {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-accent/10 text-accent rounded-full text-sm font-semibold;
+  }
+
+  /* Status indicators */
+  .status-success {
+    @apply text-secondary;
+  }
+
+  .status-warning {
+    @apply text-accent;
+  }
+
+  .status-error {
+    @apply text-destructive;
+  }
+  button, a {
+    cursor: pointer;
+  }
+}

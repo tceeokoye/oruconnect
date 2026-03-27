@@ -1,0 +1,217 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  PROFESSIONAL
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  CATEGORY_ADMIN
+  CONTENT_ADMIN
+  SUPPORT_ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONTACTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  verificationCode    String?
+  verificationExpires DateTime?
+  phone               String?
+  state               String?
+  city                String?
+  profileImage        String?   @map("profile_image")
+
+  professional  Professional?
+  bookings      Booking[]
+  notifications Notification[]
+  wallet        Wallet?
+  transactions  Transaction[]
+  jobs          Job[]         @relation("ClientJobs")
+  jobRequests   JobRequest[]  @relation("ClientRequests")
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+
+  professionals Professional[]
+  services      Service[]
+
+  @@map("categories")
+}
+
+model Professional {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  categoryId    String   @map("category_id")
+  name          String
+  phone         String?
+  state         String?
+  city          String?
+  bio           String?
+  profileImage  String?  @map("profile_image")
+  nin           String?
+  ninImage      String?  @map("nin_image")
+  cacImage      String?  @map("cac_image")
+  faceImage     String?  @map("face_image")
+  isVerified    Boolean  @default(false) @map("is_verified")
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  
+  services      Service[]
+  portfolio     PortfolioItem[]
+  jobRequests   JobRequest[]
+
+  @@map("professionals")
+}
+
+model Service {
+  id             String       @id @default(uuid())
+  professionalId String       @map("professional_id")
+  categoryId     String       @map("category_id")
+  title          String
+  description    String
+  priceRange     String       @map("price_range")
+
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  bookings       Booking[]
+
+  @@map("services")
+}
+
+model PortfolioItem {
+  id             String       @id @default(uuid())
+  professionalId String       @map("professional_id")
+  title          String
+  description    String?
+  mediaUrl       String       @map("media_url")
+
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@map("portfolio_items")
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  serviceId     String        @map("service_id")
+  clientId      String?       @map("client_id")
+  clientName    String        @map("client_name")
+  email         String
+  phone         String
+  budget        String?
+  timeline      String?
+  description   String
+  status        BookingStatus @default(PENDING)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  service       Service       @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  client        User?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@map("bookings")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  content     String
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Wallet {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  availableBalance Float    @default(0.0) @map("available_balance")
+  escrowBalance    Float    @default(0.0) @map("escrow_balance")
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id              String   @id @default(uuid())
+  transactionId   String   @unique @map("transaction_id")
+  type            String   
+  userId          String   @map("user_id")
+  amount          Float
+  status          String   @default("pending")
+  description     String?
+  paymentMethod   String?  @map("payment_method")
+  metadata        Json?
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model Job {
+  id               String       @id @default(uuid())
+  clientId         String       @map("client_id")
+  title            String
+  description      String
+  category         String
+  budget           Float
+  timeline         String
+  location         String
+  status           String       @default("open")
+  targetProviderId String?      @map("target_provider_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  client           User         @relation("ClientJobs", fields: [clientId], references: [id], onDelete: Cascade)
+  requests         JobRequest[]
+
+  @@map("jobs")
+}
+
+model JobRequest {
+  id               String       @id @default(uuid())
+  jobId            String       @map("job_id")
+  clientId         String       @map("client_id")
+  providerId       String       @map("provider_id")
+  budget           Float
+  jobDescription   String       @map("job_description")
+  timeframe        String
+  status           String       @default("pending")
+  message          String
+
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  job              Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  client           User         @relation("ClientRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  provider         Professional @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("job_requests")
+}
