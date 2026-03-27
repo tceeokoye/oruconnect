@@ -7,7 +7,7 @@ interface TestModeState {
   currentRole: TestRole
 }
 
-const initialState: TestModeState =  {
+const initialState: TestModeState = {
   enabled: false,
   currentRole: "client",
 }
