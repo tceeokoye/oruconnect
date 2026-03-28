@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json()
 
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Mock quotation creation
     const quote = {
       id: `quote_${Date.now()}`,
-      jobId: params.id,
+      jobId: (await params).id,
       providerId: body.providerId,
       quotedPrice: body.quotedPrice,
       timeline: body.timeline,

@@ -3,9 +3,9 @@ import { type NextRequest, NextResponse } from "next/server"
 // Mock comments storage
 const COMMENTS: Record<string, Array<any>> = {}
 
-export async function GET(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    const { postId } = params
+    const { postId } = await params;
     const comments = COMMENTS[postId] || []
 
     return NextResponse.json(
@@ -20,9 +20,9 @@ export async function GET(request: NextRequest, { params }: { params: { postId: 
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    const { postId } = params
+    const { postId } = await params;
     const body = await request.json()
     const { userId, userName, userRole, text } = body
 

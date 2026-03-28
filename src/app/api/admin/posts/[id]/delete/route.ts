@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const postId = params.id
+    const postId = (await params).id
 
     return NextResponse.json(
       {

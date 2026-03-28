@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    const { postId } = params
+    const { postId } = await params;
     const body = await request.json()
     const { platform, userId } = body
 

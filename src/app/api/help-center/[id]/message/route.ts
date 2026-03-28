@@ -5,7 +5,7 @@ import { extractUserId } from '@/lib/validation';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDB();
@@ -28,7 +28,7 @@ export async function POST(
       );
     }
 
-    const ticket = await HelpTicket.findById(params.id);
+    const ticket = await HelpTicket.findById((await params).id);
 
     if (!ticket) {
       return NextResponse.json(

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json()
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     // Mock dispute resolution
     const result = {
-      id: params.id,
+      id: (await params).id,
       status: "resolved",
       resolution: body.resolution,
       refundPercentage: body.refundPercentage,
