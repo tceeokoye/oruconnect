@@ -7,11 +7,11 @@ import { toast } from "sonner"
 import Link from "next/link"
 import { Mail, ArrowRight, Loader2 } from "lucide-react"
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const email = searchParams.get("email")
-  const token = searchParams.get("token")
+  const email = searchParams?.get("email")
+  const token = searchParams?.get("token")
 
   const [step, setStep] = useState<"pending" | "verified" | "error">("pending")
   const [isLoading, setIsLoading] = useState(false)
@@ -205,5 +205,15 @@ export default function VerifyEmailPage() {
         </p>
       </motion.div>
     </div>
+  )
+}
+
+import { Suspense } from "react"
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <VerifyEmailForm />
+    </Suspense>
   )
 }

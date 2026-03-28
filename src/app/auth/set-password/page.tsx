@@ -9,12 +9,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import axios from "axios";
 import { Eye, EyeOff, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image"
+import LogoIcon from "@/assets/logo/Artboardwhite.svg"
+import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT.svg"
 import { motion } from "framer-motion";
 
 function SetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const token = searchParams?.get("token");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -153,12 +157,15 @@ export default function SetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md">
         <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
-            OC
+          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shrink-0">
+            <Image src={LogoIcon} alt="logo" height={40} width={30}/>
           </div>
-          <span className="text-2xl font-bold text-primary font-poppins">
-            OruConnect
-          </span>
+          <div className="dark:hidden block">
+            <Image src={LogoTextColor} alt="OruConnect Logo" height={30} width={143.75}/>
+          </div>
+          <div className="hidden dark:block">
+            <Image src={LogoTextWhite} alt="OruConnect Logo" height={30} width={143.75}/>
+          </div>
         </Link>
         <Suspense fallback={<div className="text-center text-muted-foreground"><Loader2 className="mx-auto h-8 w-8 animate-spin" />Loading secure setup...</div>}>
           <SetPasswordForm />
