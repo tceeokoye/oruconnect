@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, MapPin, Star, Shield, Phone, Mail, Globe, MessageCircle, ArrowRight, Loader2, CheckCircle } from "lucide-react"
-import { useState, use } from "react"
+import { useState, use, useEffect } from "react"
 
 export default function ProviderProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -223,7 +223,7 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
         >
           <h2 className="text-2xl font-bold">Gallery</h2>
           <div className="grid md:grid-cols-4 gap-4">
-            {provider.gallery.map((image, index) => (
+            {provider.gallery.map((image: string, index: number) => (
               <motion.div
                 key={index}
                 className="rounded-lg overflow-hidden cursor-pointer h-48"
@@ -248,7 +248,7 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
         >
           <h2 className="text-2xl font-bold">Recent Jobs</h2>
           <div className="space-y-3">
-            {provider.recentJobs.map((job, index) => (
+            {provider.recentJobs.map((job: any, index: number) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted transition-colors"
