@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
     const formattedPosts = posts.map((post: any) => ({
       id: post.id,
       providerId: post.providerId,
-      providerName: post.providerName,
-      businessName: post.businessName || "",
+      providerName: post.providerName !== "undefined undefined" && post.providerName ? post.providerName : (post.provider?.name || post.provider?.user?.name || "Verified Provider"),
+      businessName: post.businessName !== "undefined undefined" && post.businessName ? post.businessName : "",
       verified: post.provider.isVerified,
       type: post.type,
       caption: post.caption,

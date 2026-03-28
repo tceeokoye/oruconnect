@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     const newPost = await prisma.post.create({
       data: {
         providerId: professional.id,
-        providerName,
-        businessName: businessName || null,
+        providerName: providerName && providerName !== "undefined undefined" ? providerName : (professional.name || "Verified Provider"),
+        businessName: businessName && businessName !== "undefined undefined" ? businessName : null,
         type,
         caption: caption || "",
         mediaUrl: mediaUrl || null,
