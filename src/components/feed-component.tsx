@@ -200,8 +200,8 @@ export function FeedComponent({
                   className="cursor-pointer flex items-center space-x-1 hover:text-purple-400 transition-colors"
                   whileHover={{ scale: 1.05 }}
                 >
-                  <Heart size={16} fill={likeHeart[post._id] ? 'currentColor' : 'none'} />
-                  <span>{likes[post._id] || 0} likes</span>
+                  <Heart size={16} fill={likeHeart[postId] ? 'currentColor' : 'none'} />
+                  <span>{likes[postId] || 0} likes</span>
                 </motion.span>
                 <span className="flex items-center space-x-1">
                   <MessageCircle size={16} />
@@ -219,14 +219,14 @@ export function FeedComponent({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handleLike(post._id)}
+                onClick={() => handleLike(postId)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  likeHeart[post._id]
+                  likeHeart[postId]
                     ? 'text-red-500 bg-red-500/10'
                     : 'text-gray-400 hover:text-red-500 hover:bg-red-500/10'
                 }`}
               >
-                <Heart size={18} fill={likeHeart[post._id] ? 'currentColor' : 'none'} />
+                <Heart size={18} fill={likeHeart[postId] ? 'currentColor' : 'none'} />
                 <span className="text-sm font-semibold">Like</span>
               </motion.button>
 
@@ -235,7 +235,7 @@ export function FeedComponent({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   const newSet = new Set(expandedComments);
-                  newSet.has(post._id) ? newSet.delete(post._id) : newSet.add(post._id);
+                  newSet.has(postId) ? newSet.delete(postId) : newSet.add(postId);
                   setExpandedComments(newSet);
                 }}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
@@ -247,7 +247,7 @@ export function FeedComponent({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handleShare(post._id)}
+                onClick={() => handleShare(postId)}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:text-green-500 hover:bg-green-500/10 transition-colors"
               >
                 <Share2 size={18} />
@@ -257,7 +257,7 @@ export function FeedComponent({
 
             {/* Comments Section */}
             <AnimatePresence>
-              {expandedComments.has(post._id) && (
+              {expandedComments.has(postId) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -269,11 +269,11 @@ export function FeedComponent({
                   <div className="flex items-center space-x-2">
                     <input
                       type="text"
-                      value={newComments[post._id] || ''}
+                      value={newComments[postId] || ''}
                       onChange={(e) =>
                         setNewComments((prev) => ({
                           ...prev,
-                          [post._id]: e.target.value,
+                          [postId]: e.target.value,
                         }))
                       }
                       placeholder="Write a comment..."
@@ -282,7 +282,7 @@ export function FeedComponent({
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleAddComment(post._id)}
+                      onClick={() => handleAddComment(postId)}
                       className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                     >
                       <Send size={16} />
