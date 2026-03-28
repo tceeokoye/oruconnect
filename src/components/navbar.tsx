@@ -12,7 +12,7 @@ import NotificationBell from "@/components/notification-bell";
 import { useEffect } from "react";
 import LogoIcon from "@/assets/logo/Artboardwhite.svg"
 import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
-import LogoTextColor from "@/assets/logo/ORUCONNECT BLUE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT.svg"
 
 import { tokenActions } from "@/store/slices/auth-slice";
 

@@ -4,7 +4,7 @@ import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "luc
 
 import LogoIcon from "@/assets/logo/Artboardwhite.svg"
 import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
-import LogoTextColor from "@/assets/logo/ORUCONNECT BLUE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT.svg"
 
 export function Footer() {
   return (
