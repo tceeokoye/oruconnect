@@ -1,5 +1,10 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
+
+import LogoIcon from "@/assets/logo/Artboardwhite.svg"
+import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT BLUE.svg"
 
 export function Footer() {
   return (
@@ -8,7 +13,17 @@ export function Footer() {
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div className="space-y-3">
-            <h3 className="text-xl font-bold text-primary">OruConnect</h3>
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shrink-0">
+                <Image src={LogoIcon} alt="logo" height={32} width={24}/>
+              </div>
+              <div className="dark:hidden block">
+                <Image src={LogoTextColor} alt="OruConnect Logo" height={24} width={115}/>
+              </div>
+              <div className="hidden dark:block">
+                <Image src={LogoTextWhite} alt="OruConnect Logo" height={24} width={115}/>
+              </div>
+            </Link>
             <p className="text-sm text-muted-foreground">Verified Businesses. Trusted Results.</p>
             <div className="flex gap-3">
               <a href="#" className="p-2 rounded-lg hover:bg-muted transition-colors">

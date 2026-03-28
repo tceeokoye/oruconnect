@@ -10,11 +10,14 @@ import  logout  from "@/store/slices/auth-slice"
 import { ThemeToggle } from "@/components/theme-toggle";
 import NotificationBell from "@/components/notification-bell";
 import { useEffect } from "react";
-
+import LogoIcon from "@/assets/logo/Artboardwhite.svg"
+import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT BLUE.svg"
 
 import { tokenActions } from "@/store/slices/auth-slice";
 
 import { Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import Image from "next/image";
 
 export function Navbar() {
   const router = useRouter();
@@ -71,12 +74,16 @@ export function Navbar() {
             href="/"
             className="flex items-center gap-2"
           >
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-              OC
+            <div className="w-8 h-8 rounded-full bg-primary md:hidden flex items-center justify-center text-primary-foreground font-bold">
+             <Image src={LogoIcon} alt="logo" height={32} width={24}/>
             </div>
-            <span className="hidden md:block text-2xl font-bold text-primary font-poppins">
-              OruConnect
-            </span>
+            
+            <div className="dark:hidden block">
+              <Image src={LogoTextColor} alt="OruConnect Logo" height={32} width={153.3}/>
+            </div>
+            <div className="hidden dark:block">
+              <Image src={LogoTextWhite} alt="OruConnect Logo" height={32} width={153.3}/>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}

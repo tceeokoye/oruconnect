@@ -1,6 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
+import LogoIcon from "@/assets/logo/Artboardwhite.svg"
+import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
+import LogoTextColor from "@/assets/logo/ORUCONNECT BLUE.svg"
 import { usePathname } from "next/navigation"
 import { useDispatch, useSelector } from "react-redux"
 import { motion } from "framer-motion"
@@ -86,12 +90,17 @@ export function DashboardSidebar() {
         {/* Logo/Brand */}
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between h-[73px]">
           {sidebarOpen && (
-            <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shrink-0">
-                OC
+                <Image src={LogoIcon} alt="logo" height={32} width={24}/>
               </div>
-              <h2 className="text-xl font-bold text-primary font-poppins truncate">OruConnect</h2>
-            </div>
+              <div className="dark:hidden block">
+                <Image src={LogoTextColor} alt="OruConnect Logo" height={24} width={115}/>
+              </div>
+              <div className="hidden dark:block">
+                <Image src={LogoTextWhite} alt="OruConnect Logo" height={24} width={115}/>
+              </div>
+            </Link>
           )}
           <button
             onClick={() => dispatch(toggleSidebar())}
