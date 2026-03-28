@@ -21,49 +21,35 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
 
+  const [featuredProviders, setFeaturedProviders] = useState<any[]>([]);
+
   useEffect(() => {
     setMounted(true);
+    const fetchFeatured = async () => {
+      try {
+        const response = await fetch("/api/providers?limit=3");
+        const data = await response.json();
+        if (data.success && data.data && data.data.length > 0) {
+          setFeaturedProviders(data.data);
+        } else {
+          // Fallback placeholders if DB is empty
+          setFeaturedProviders([
+            {
+              id: "1",
+              name: "OruConnect Pros",
+              category: "Platform Services",
+              rating: 5.0,
+              reviews: 42,
+              image: "/placeholder.svg",
+            }
+          ]);
+        }
+      } catch (error) {
+        console.error("Failed to load featured providers", error);
+      }
+    };
+    fetchFeatured();
   }, []);
-
-  function useIsMobile(breakpoint = 768) {
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-      const check = () => setIsMobile(window.innerWidth < breakpoint);
-      check();
-      window.addEventListener("resize", check);
-      return () => window.removeEventListener("resize", check);
-    }, [breakpoint]);
-
-    return isMobile;
-  }
-
-  const featuredProviders = [
-    {
-      id: "1",
-      name: "ElectroWorks Pro",
-      category: "Electrical Services",
-      rating: 4.9,
-      reviews: 128,
-      image: "/electrical-services.jpg",
-    },
-    {
-      id: "2",
-      name: "Plumb Masters",
-      category: "Plumbing Services",
-      rating: 4.8,
-      reviews: 95,
-      image: "/plumbing-services.png",
-    },
-    {
-      id: "3",
-      name: "Interior Design Hub",
-      category: "Interior Design",
-      rating: 4.9,
-      reviews: 156,
-      image: "/modern-living-room.png",
-    },
-  ];
 
   const containerVariants = {
     hidden: { opacity: 0 },

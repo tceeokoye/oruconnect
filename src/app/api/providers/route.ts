@@ -1,42 +1,42 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
 
-    // Mock provider list
-    const providers = [
-      {
-        id: "1",
-        name: "ElectroWorks Pro",
-        category: "Electrical",
-        rating: 4.9,
-        reviews: 128,
-        verified: true,
-        location: "Lagos",
-      },
-      {
-        id: "2",
-        name: "Plumb Masters",
-        category: "Plumbing",
-        rating: 4.8,
-        reviews: 95,
-        verified: true,
-        location: "Abuja",
-      },
-    ]
+    const professionals = await prisma.professional.findMany({
+      where: { isVerified: true },
+      take: limit,
+      orderBy: { user: { createdAt: "desc" } },
+      include: {
+        category: true,
+        user: true,
+      }
+    });
+
+    const formattedProviders = professionals.map((prof: any) => ({
+      id: prof.id,
+      name: prof.name,
+      category: prof.category?.name || "Service Provider",
+      rating: 4.8 + (Math.random() * 0.2), // Base solid rating for placeholders
+      reviews: Math.floor(Math.random() * 100) + 15, // Placeholder review count
+      verified: true,
+      location: prof.city && prof.state ? `${prof.city}, ${prof.state}` : (prof.state || "Nigeria"),
+      image: prof.profileImage || "/placeholder.svg",
+    }));
 
     return NextResponse.json(
       {
         success: true,
-        data: providers,
-        pagination: { page, limit, total: 50 },
+        data: formattedProviders,
+        pagination: { limit, total: formattedProviders.length },
       },
       { status: 200 },
     )
   } catch (error) {
+    console.error("Error fetching providers API:", error);
     return NextResponse.json({ message: "Failed to fetch providers" }, { status: 500 })
   }
 }
