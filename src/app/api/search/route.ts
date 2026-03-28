@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,24 +14,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Please provide search criteria" }, { status: 400 })
     }
 
-    // Mock search results
-    const results = {
-      providers: [
-        {
-          id: "1",
-          name: "ElectroWorks Pro",
-          category: "Electrical",
-          rating: 4.9,
-          reviews: 128,
-          location: `${city || "Lagos"}, ${state || "Lagos"}`,
-        },
-      ],
-      total: 1,
-      filters: {
-        category,
-        state,
-        city,
+    // Perform real DB search
+    const professionals = await prisma.professional.findMany({
+      where: {
+        isVerified: true,
+        ...(query && {
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { bio: { contains: query, mode: "insensitive" } }
+          ]
+        }),
+        ...(category && { category: { name: { contains: category, mode: "insensitive" } } }),
+        ...(state && { state: { contains: state, mode: "insensitive" } }),
+        ...(city && { city: { contains: city, mode: "insensitive" } }),
       },
+      include: {
+        category: true,
+        user: true,
+        services: { include: { bookings: true } },
+      }
+    });
+
+    const formattedProviders = professionals.map((prof: any) => {
+      let totalBookings = 0;
+      let completedBookings = 0;
+
+      prof.services?.forEach((service: any) => {
+        service.bookings?.forEach((booking: any) => {
+          totalBookings++;
+          if (booking.status === "COMPLETED") completedBookings++;
+        });
+      });
+
+      const completionRateDec = totalBookings > 0 ? (completedBookings / totalBookings) : 0;
+      const calculatedRating = totalBookings > 0 ? Number((3.5 + (completionRateDec * 1.5)).toFixed(1)) : 0;
+
+      return {
+        id: prof.id,
+        name: prof.name,
+        category: prof.category?.name || "Service Provider",
+        rating: calculatedRating,
+        reviews: totalBookings,
+        location: prof.city && prof.state ? `${prof.city}, ${prof.state}` : (prof.state || "Nigeria"),
+        image: prof.faceImage || prof.user?.profileImage || prof.profileImage || "/placeholder.svg",
+      };
+    });
+
+    const results = {
+      providers: formattedProviders,
+      total: formattedProviders.length,
+      filters: { category, state, city },
     }
 
     return NextResponse.json({ success: true, data: results }, { status: 200 })

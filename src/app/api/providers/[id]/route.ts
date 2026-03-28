@@ -30,7 +30,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     })
 
-    const completionRate = totalBookings > 0 ? Math.round((completedBookings / totalBookings) * 100) : 100
+    const completionRateDec = totalBookings > 0 ? (completedBookings / totalBookings) : 0
+    const completionRate = Math.round(completionRateDec * 100)
+    const calculatedRating = totalBookings > 0 ? Number((3.5 + (completionRateDec * 1.5)).toFixed(1)) : 0
+
     const totalLikes = provider.posts.reduce((acc: number, post: any) => acc + (post.likes || 0), 0)
     const totalReviews = totalBookings + totalLikes
     
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       subcategory: provider.services[0]?.title || "General",
       state: provider.state || provider.location?.split(',')[1]?.trim() || "Nigeria",
       city: provider.city || provider.location?.split(',')[0]?.trim() || "Local",
-      rating: totalReviews > 0 ? 5.0 : Number((4.5 + ((provider.name.length % 5) * 0.1)).toFixed(1)),
+      rating: calculatedRating,
       reviews: totalReviews,
       verified: provider.isVerified,
       joinedDate: provider.user.createdAt.toISOString(),

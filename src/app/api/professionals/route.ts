@@ -22,7 +22,9 @@ export async function GET(request: Request) {
     const data = await Promise.all(professionals.map(async (prof: any) => {
       const totalBookings = await prisma.booking.count({ where: { service: { professionalId: prof.id } } });
       const completed = await prisma.booking.count({ where: { service: { professionalId: prof.id }, status: "COMPLETED" } });
-      const completionRate = totalBookings > 0 ? Math.round((completed / totalBookings) * 100) : 100;
+      const completionRateDec = totalBookings > 0 ? (completed / totalBookings) : 0;
+      const completionRate = Math.round(completionRateDec * 100);
+      const calculatedRating = totalBookings > 0 ? Number((3.5 + (completionRateDec * 1.5)).toFixed(1)) : 0;
       
       const totalLikes = prof.posts?.reduce((acc: number, post: any) => acc + (post.likes || 0), 0) || 0;
       const totalReviews = totalBookings + totalLikes;
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
         subcategory: prof.services?.[0]?.title || "General",
         state: prof.state || prof.location?.split(',')[1]?.trim() || "Nigeria",
         city: prof.city || prof.location?.split(',')[0]?.trim() || "Local",
-        rating: totalReviews > 0 ? 5.0 : Number((4.5 + ((prof.name?.length || 5 % 5) * 0.1)).toFixed(1)),
+        rating: calculatedRating,
         reviews: totalReviews,
         completionRate,
         verified: prof.isVerified,
