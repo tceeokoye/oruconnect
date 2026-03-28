@@ -80,35 +80,20 @@ export default function ProviderPostCard({
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
           >
-            {post.type === "text" ? (
+            {post.type === "text" || !post.mediaUrl?.includes(".mp4") && !post.mediaUrl?.includes(".webm") ? (
               <img
                 src={post.mediaUrl || "/placeholder.svg"}
                 alt="Post content"
                 className="w-full h-full object-cover"
               />
             ) : (
-              <>
-                <video
-                  src={post.mediaUrl}
-                  poster={post.mediaThumbnail}
-                  className="w-full h-full object-cover"
-                  muted
-                />
-                {isHovering && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="absolute inset-0 bg-black/40 flex items-center justify-center"
-                  >
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="w-12 h-12 rounded-full bg-white flex items-center justify-center"
-                    >
-                      <Play className="w-5 h-5 text-black ml-0.5" />
-                    </motion.div>
-                  </motion.div>
-                )}
-              </>
+              <video
+                src={post.mediaUrl}
+                poster={post.mediaThumbnail || ""}
+                className="w-full h-full object-cover bg-black"
+                controls
+                controlsList="nodownload"
+              />
             )}
           </div>
         )}

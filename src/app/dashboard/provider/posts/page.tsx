@@ -116,9 +116,9 @@ export default function ProviderPostsPage() {
         <TabsContent value="create" className="mt-6">
           <CreatePostForm
             providerId={user.id}
-            providerName={`${user.firstName} ${user.lastName}`}
-            businessName={user.businessId ? "Business" : ""}
-            verified={user.verified}
+            providerName={user.name || "Provider"}
+            businessName={"Business"}
+            verified={user.verified || false}
             onSuccess={handlePostCreated}
           />
         </TabsContent>
