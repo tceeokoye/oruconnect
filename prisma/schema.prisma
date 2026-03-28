@@ -85,6 +85,7 @@ model Professional {
   services      Service[]
   portfolio     PortfolioItem[]
   jobRequests   JobRequest[]
+  posts         Post[]
 
   @@map("professionals")
 }
@@ -214,4 +215,26 @@ model JobRequest {
   provider         Professional @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@map("job_requests")
+}
+
+model Post {
+  id              String       @id @default(uuid())
+  providerId      String       @map("provider_id")
+  providerName    String       @map("provider_name")
+  businessName    String?      @map("business_name")
+  type            String
+  caption         String
+  mediaUrl        String?      @map("media_url")
+  mediaThumbnail  String?      @map("media_thumbnail")
+  status          String       @default("pending")
+  likes           Int          @default(0)
+  comments        Int          @default(0)
+  shares          Int          @default(0)
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  provider        Professional  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
 }
