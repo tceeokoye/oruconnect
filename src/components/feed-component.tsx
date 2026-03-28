@@ -289,6 +289,7 @@ export function FeedComponent({
                     </motion.button>
                   </div>
                 </motion.div>
+              )}
             </AnimatePresence>
           </motion.div>
           );
