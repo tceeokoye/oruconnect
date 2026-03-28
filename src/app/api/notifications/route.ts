@@ -30,9 +30,31 @@ async function getNotifications(request: NextRequest, auth: any) {
       prisma.notification.count({ where: { userId, isRead: false } })
     ]);
 
+    const mappedNotifications = notifications.map((n: any) => {
+      let parsed = { title: "Platform Update", type: "system", message: n.content };
+      
+      try {
+        const decoded = JSON.parse(n.content);
+        if (decoded.title && decoded.message) {
+          parsed = decoded;
+        }
+      } catch (e) {
+        // Fallback for legacy raw string notifications
+      }
+
+      return {
+        _id: n.id,
+        title: parsed.title,
+        message: parsed.message,
+        type: parsed.type,
+        isRead: n.isRead,
+        createdAt: n.createdAt
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: notifications,
+      data: mappedNotifications,
       pagination: {
         page: pageNum,
         limit: limitNum,

@@ -1,80 +1,54 @@
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDB from "@/lib/db";
-import Notification from "@/models/notification";
-import { extractUserId } from "@/lib/validation";
+import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth-middleware";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function updateNotification(request: NextRequest, auth: any, params: any) {
   try {
-    await connectToDB();
+    const userId = auth.userId;
+    const { id } = params;
 
-    const userId = extractUserId(request);
-    if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-
-    const notification = await Notification.findOneAndUpdate(
-      { _id: id, userId },
-      { isRead: true, readAt: new Date() },
-      { new: true }
-    );
-
-    if (!notification) {
-      return NextResponse.json(
-        { message: "Notification not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: notification,
+    const result = await prisma.notification.updateMany({
+      where: { id, userId },
+      data: { isRead: true }
     });
+
+    if (result.count === 0) {
+      return NextResponse.json({ message: "Notification not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Mark notification error:", error);
-    return NextResponse.json(
-      { message: "Failed to mark notification" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Failed to mark notification" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function removeNotification(request: NextRequest, auth: any, params: any) {
   try {
-    await connectToDB();
+    const userId = auth.userId;
+    const { id } = params;
 
-    const userId = extractUserId(request);
-    if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-
-    const result = await Notification.findOneAndDelete({ _id: id, userId });
-
-    if (!result) {
-      return NextResponse.json(
-        { message: "Notification not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Notification deleted",
+    const result = await prisma.notification.deleteMany({
+      where: { id, userId }
     });
+
+    if (result.count === 0) {
+      return NextResponse.json({ message: "Notification not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: "Notification deleted" });
   } catch (error) {
     console.error("Delete notification error:", error);
-    return NextResponse.json(
-      { message: "Failed to delete notification" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Failed to delete notification" }, { status: 500 });
   }
 }
+
+export const PUT = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const resolvedParams = await params;
+  return withAuth(req, (r, a) => updateNotification(r, a, resolvedParams));
+};
+
+export const DELETE = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const resolvedParams = await params;
+  return withAuth(req, (r, a) => removeNotification(r, a, resolvedParams));
+};

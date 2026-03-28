@@ -144,15 +144,15 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 bg-muted rounded-lg p-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{provider.responseTime}</p>
+                  <p className="text-base md:2xl font-bold">{provider.responseTime}</p>
                   <p className="text-xs text-muted-foreground">Response Time</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{provider.completionRate}%</p>
+                  <p className="text-base md:2xl font-bold">{provider.completionRate}%</p>
                   <p className="text-xs text-muted-foreground">Completion Rate</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">Verified</p>
+                  <p className="text-base md:2xl font-bold">Verified</p>
                   <p className="text-xs text-muted-foreground">
                     Member Since {new Date(provider.joinedDate).getFullYear()}
                   </p>

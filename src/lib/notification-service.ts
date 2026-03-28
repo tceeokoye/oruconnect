@@ -1,10 +1,6 @@
-import connectToDB from '@/lib/db';
-import Notification from '@/models/notification';
-import NotificationPreference from '@/models/notification-preference';
-import DeviceToken from '@/models/device-token';
-import User from '@/models/user';
+import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email-service';
-import { sendPushNotification } from '@/lib/push-service';
+// Note: Push notifications via MongoDB DeviceToken are bypassed temporarily until migrated
 
 export async function createAndDeliverNotification({
   userId,
@@ -21,30 +17,27 @@ export async function createAndDeliverNotification({
   data?: any;
   relatedId?: string | null;
 }) {
-  await connectToDB();
-
-  // create in-app notification
-  const notif = new Notification({
-    userId,
-    type,
+  // Bundle the rich UI fields into the Postgres content string
+  const richPayload = JSON.stringify({
     title,
+    type,
     message,
     data,
-    relatedId,
-    deliveryMethods: { inApp: true },
+    relatedId
   });
 
-  await notif.save();
+  const notif = await prisma.notification.create({
+    data: {
+      userId,
+      content: richPayload,
+    }
+  });
 
-  // fetch preferences
-  const prefs = await NotificationPreference.findOne({ userId });
+  // fetch user for email fallback
+  const user = await prisma.user.findUnique({ where: { id: userId } });
 
-  // fetch user for email
-  const user = await User.findById(userId);
-
-  // If email delivery enabled for this type
-  const emailEnabled = prefs?.emailNotifications?.[type] ?? true;
-  if (emailEnabled && user?.email) {
+  // Optional: Send Email (Assuming default true for now)
+  if (user?.email) {
     try {
       await sendEmail({
         to: user.email,
@@ -53,19 +46,6 @@ export async function createAndDeliverNotification({
       });
     } catch (e) {
       console.warn('Failed sending notification email', e);
-    }
-  }
-
-  // If push delivery enabled for this type
-  const pushEnabled = prefs?.pushNotifications?.[type] ?? false;
-  if (pushEnabled) {
-    const tokens = await DeviceToken.find({ userId });
-    for (const t of tokens) {
-      try {
-        await sendPushNotification(t.token, title, message, data || {});
-      } catch (e) {
-        console.warn('Push send failed', e);
-      }
     }
   }
 

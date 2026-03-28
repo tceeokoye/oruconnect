@@ -1,97 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDB from '@/lib/db';
-import FeedInteraction from '@/models/feed-interaction';
-import Post from '@/models/post';
+import { prisma } from '@/lib/prisma';
 import { extractUserId } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB();
-
     const userId = extractUserId(request);
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { postId, action } = body; // action: 'like' | 'unlike'
+    const { postId, action } = body;
 
-    if (!postId) {
-      return NextResponse.json(
-        { error: 'Post ID is required' },
-        { status: 400 }
-      );
+    if (!postId || !action) {
+      return NextResponse.json({ error: 'Post ID and action required' }, { status: 400 });
     }
 
-    const post = await Post.findById(postId);
-    if (!post) {
-      return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
-      );
-    }
+    const incrementValue = action === 'like' ? 1 : -1;
 
-    // Check if user already liked this post
-    const existingLike = await FeedInteraction.findOne({
-      postId,
-      userId,
-      type: 'like',
+    const post = await prisma.post.update({
+      where: { id: postId },
+      data: { likes: { increment: incrementValue } }
     });
 
-    if (action === 'like') {
-      if (existingLike) {
-        return NextResponse.json(
-          { error: 'You already liked this post' },
-          { status: 400 }
-        );
-      }
-
-      await FeedInteraction.create({
-        postId,
-        userId,
-        type: 'like',
-      });
-
-      post.likes = (post.likes || 0) + 1;
-      await post.save();
-
-      return NextResponse.json({
-        success: true,
-        message: 'Post liked successfully',
-        likes: post.likes,
-      });
-    } else if (action === 'unlike') {
-      if (!existingLike) {
-        return NextResponse.json(
-          { error: 'You have not liked this post' },
-          { status: 400 }
-        );
-      }
-
-      await FeedInteraction.deleteOne({ _id: existingLike._id });
-
-      post.likes = Math.max(0, (post.likes || 0) - 1);
-      await post.save();
-
-      return NextResponse.json({
-        success: true,
-        message: 'Post unliked successfully',
-        likes: post.likes,
-      });
-    } else {
-      return NextResponse.json(
-        { error: 'Invalid action' },
-        { status: 400 }
-      );
+    // Ensure likes do not drop below zero conceptually (handled cleanly if already synced)
+    if (post.likes < 0) {
+      await prisma.post.update({ where: { id: postId }, data: { likes: 0 }});
+      post.likes = 0;
     }
+
+    return NextResponse.json({
+      success: true,
+      message: `Post ${action}d successfully`,
+      likes: post.likes,
+    });
   } catch (error: any) {
+    if (error.code === 'P2025') {
+       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
     console.error('Error updating like:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update like' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to update like' }, { status: 500 });
   }
 }
