@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
 // Mock comments storage
 const COMMENTS: Record<string, Array<any>> = {}
@@ -50,6 +51,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     COMMENTS[postId].push(newComment)
+    
+    // Increment the physical database tracker to show the correct counter
+    await prisma.post.update({
+      where: { id: postId },
+      data: { comments: { increment: 1 } }
+    });
 
     return NextResponse.json(
       {

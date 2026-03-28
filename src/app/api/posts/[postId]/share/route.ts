@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-
+import { prisma } from "@/lib/prisma"
 export async function POST(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
     const { postId } = await params;
@@ -16,12 +16,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ message: "Invalid platform" }, { status: 400 })
     }
 
+    const updatedPost = await prisma.post.update({
+      where: { id: postId },
+      data: { shares: { increment: 1 } }
+    })
+
     return NextResponse.json(
       {
         success: true,
         message: "Share tracked successfully",
         platform,
         postId,
+        shares: updatedPost.shares,
         timestamp: new Date().toISOString(),
       },
       { status: 200 },

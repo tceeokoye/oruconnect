@@ -23,9 +23,29 @@ export default function ProviderPostCard({
   const [commentCount, setCommentCount] = useState(post.comments);
   const [shareCount, setShareCount] = useState(post.shares);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    onLike?.();
+  const [likeCount, setLikeCount] = useState(post.likes);
+
+  const handleLike = async () => {
+    try {
+      const prevLiked = isLiked;
+      setIsLiked(!prevLiked);
+      setLikeCount(prev => prevLiked ? prev - 1 : prev + 1);
+      onLike?.();
+
+      const response = await fetch(`/api/posts/${post.id}/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: prevLiked ? "unlike" : "like" })
+      });
+
+      if (!response.ok) {
+        setIsLiked(prevLiked);
+        setLikeCount(prev => prevLiked ? prev + 1 : prev - 1);
+      }
+    } catch (e) {
+      console.error(e);
+      setIsLiked(!isLiked);
+    }
   };
 
   return (
@@ -111,7 +131,7 @@ export default function ProviderPostCard({
                 isLiked ? "fill-primary text-primary" : ""
               }`}
             />
-            <span className="group-hover:text-primary">{post.likes}</span>
+            <span className="group-hover:text-primary">{likeCount}</span>
           </motion.button>
 
           <motion.button
@@ -148,7 +168,14 @@ export default function ProviderPostCard({
         isOpen={showShare}
         onClose={() => setShowShare(false)}
         postId={post.id}
-        onShare={() => setShareCount(shareCount + 1)}
+        onShare={() => {
+          setShareCount(prev => prev + 1);
+          fetch(`/api/posts/${post.id}/share`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ platform: "copy" })
+          }).catch(console.error);
+        }}
       />
     </>
   );
