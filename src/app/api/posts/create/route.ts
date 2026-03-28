@@ -16,9 +16,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // providerId from Redux is actually the base User ID. We must find their Professional record.
+    const professional = await prisma.professional.findUnique({
+      where: { userId: providerId },
+    })
+
+    if (!professional) {
+      return NextResponse.json({ message: "No professional business profile found for this user." }, { status: 404 })
+    }
+
     const newPost = await prisma.post.create({
       data: {
-        providerId,
+        providerId: professional.id,
         providerName,
         businessName: businessName || null,
         type,

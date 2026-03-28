@@ -9,7 +9,13 @@ export async function GET(request: NextRequest) {
 
     let where: any = {}
     if (providerId) {
-      where.providerId = providerId
+      const professional = await prisma.professional.findUnique({
+        where: { userId: providerId }
+      })
+      if (!professional) {
+        return NextResponse.json({ success: true, data: [], posts: [], total: 0, hasMore: false }, { status: 200 })
+      }
+      where.providerId = professional.id
     }
     if (status) {
       where.status = status
