@@ -4,7 +4,7 @@ import { useSelector } from "react-redux"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, MapPin, Star, Shield, Phone, Mail, Globe, MessageCircle, ArrowRight } from "lucide-react"
+import { ArrowLeft, MapPin, Star, Shield, Phone, Mail, Globe, MessageCircle, ArrowRight, Loader2, CheckCircle } from "lucide-react"
 import { useState, use } from "react"
 
 export default function ProviderProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +13,9 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
   const [showInquiryModal, setShowInquiryModal] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  
+  const [provider, setProvider] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,31 +26,22 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
     timeline: ""
   })
 
-  const provider = {
-    id: resolvedParams.id,
-    name: "ElectroWorks Pro",
-    description: "Professional electrical services for residential and commercial properties",
-    category: "Electrical",
-    subcategory: "Installation & Repair",
-    state: "Lagos",
-    city: "Lagos",
-    rating: 4.9,
-    reviews: 128,
-    verified: true,
-    joinedDate: "2023-06-15",
-    phone: "+234 800 123 4567",
-    email: "contact@electroworks.ng",
-    website: "www.electroworks.ng",
-    responseTime: "2 hours",
-    completionRate: 98,
-    image: "/electrical-services.jpg",
-    gallery: ["/electrical-work-1.jpg", "/electrical-work-2.jpg", "/electrical-work-3.jpg", "/electrical-work-4.jpg"],
-    recentJobs: [
-      { title: "House Rewiring", status: "completed", rating: 5 },
-      { title: "Solar Panel Installation", status: "completed", rating: 5 },
-      { title: "Electrical Maintenance", status: "completed", rating: 4 },
-    ],
-  }
+  useEffect(() => {
+    const fetchProvider = async () => {
+      try {
+        const response = await fetch(`/api/providers/${resolvedParams.id}`)
+        const res = await response.json()
+        if (res.success) {
+          setProvider(res.data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch provider:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProvider()
+  }, [resolvedParams.id])
 
   const handleInquiry = () => {
     setShowInquiryModal(true)
@@ -66,6 +60,27 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
         setFormData({ name: "", email: "", phone: "", budget: "", description: "", timeline: "" })
       }, 3000)
     }, 1500)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <p className="text-muted-foreground animate-pulse">Loading verified provider profile...</p>
+      </div>
+    )
+  }
+
+  if (!provider) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+        <h2 className="text-2xl font-bold">Provider Not Found</h2>
+        <p className="text-muted-foreground">The business profile you are looking for does not exist.</p>
+        <Link href="/providers" className="text-primary hover:underline flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Return to Directory
+        </Link>
+      </div>
+    )
   }
 
   return (

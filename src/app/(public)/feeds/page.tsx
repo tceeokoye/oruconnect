@@ -7,127 +7,43 @@ import ProviderPostCard from "@/components/provider-post-card"
 import { NIGERIAN_STATES } from "@/lib/constants/nigerian-states"
 import type { ProviderPost } from "@/types"
 
-// Dummy posts that match the ProviderPost type + category
-const DUMMY_POSTS: (ProviderPost & { category: string; state: string })[] = [
-  {
-    id: "1",
-    providerId: "p1",
-    providerName: "ElectroWorks Pro",
-    businessName: "ElectroWorks Pro Ltd",
-    verified: true,
-    type: "video",
-    caption: "Installed solar panels and wiring for a residential home.",
-    category: "Electrical",
-    state: "Lagos",
-    mediaUrl: "/electrical-services.mp4",
-    mediaThumbnail: "/electrical-services.jpg",
-    status: "approved",
-    likes: 12,
-    comments: 3,
-    shares: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    providerId: "p2",
-    providerName: "Plumb Masters",
-    businessName: "Plumb Masters Ltd",
-    verified: false,
-    type: "video",
-    caption: "Repaired leaking pipes and installed new faucets.",
-    category: "Plumbing",
-    state: "Lagos",
-    mediaUrl: "/plumbing-services.mp4",
-    mediaThumbnail: "/plumbing-services.png",
-    status: "approved",
-    likes: 7,
-    comments: 2,
-    shares: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    providerId: "p3",
-    providerName: "Interior Design Hub",
-    businessName: "Interior Design Hub Ltd",
-    verified: true,
-    type: "text",
-    caption: "Redesigned a living room with modern decor.",
-    category: "Design",
-    state: "Lagos",
-    mediaUrl: "/modern-living-room.png",
-    mediaThumbnail: "/modern-living-room.png",
-    status: "approved",
-    likes: 20,
-    comments: 5,
-    shares: 2,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "4",
-    providerId: "p4",
-    providerName: "Cleaning Pros",
-    businessName: "Cleaning Pros Ltd",
-    verified: false,
-    type: "video",
-    caption: "Cleaned office space thoroughly.",
-    category: "Cleaning",
-    state: "Abuja",
-    mediaUrl: "/home-cleaning.mp4",
-    mediaThumbnail: "/home-cleaning.png",
-    status: "approved",
-    likes: 8,
-    comments: 1,
-    shares: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "5",
-    providerId: "p5",
-    providerName: "Carpenter's Choice",
-    businessName: "Carpenter's Choice Ltd",
-    verified: true,
-    type: "text",
-    caption: "Built a custom dining table set.",
-    category: "Carpentry",
-    state: "Oyo",
-    mediaUrl: "/carpentry-workshop.png",
-    mediaThumbnail: "/carpentry-workshop.png",
-    status: "approved",
-    likes: 15,
-    comments: 4,
-    shares: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
-
 export default function FeedsPage() {
-  const [posts, setPosts] = useState(DUMMY_POSTS)
-  const [loading, setLoading] = useState(false)
+  const [posts, setPosts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedState, setSelectedState] = useState("")
   const [showFilters, setShowFilters] = useState(false)
 
-  // Get unique categories
-  const categories = ["All", ...new Set(posts.map((p) => p.category))]
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch("/api/posts")
+        const data = await response.json()
+        setPosts(data.posts || [])
+      } catch (error) {
+        console.error("Failed to fetch posts", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPosts()
+  }, [])
+
+  // Get unique categories safely based on actual database category
+  const categories = ["All", ...new Set(posts.map((p) => p.category).filter(Boolean))]
 
   // Filter posts by search, category, and state
   const filteredPosts = posts.filter((post) => {
     const matchesSearch =
-      post.caption.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.providerName.toLowerCase().includes(searchTerm.toLowerCase())
+      post.caption?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.providerName?.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesCategory = selectedCategory === "All" || post.category === selectedCategory
 
-    // Since ProviderPost doesn't have a `state`, we will skip state filtering
-    const matchesState = !selectedState // You can extend this if your data has `state`
+    // Since ProviderPost doesn't easily expose location out of the box we ignore state filter temporarily
+    const matchesState = true 
 
     return matchesSearch && matchesCategory && matchesState
   })
@@ -195,7 +111,24 @@ export default function FeedsPage() {
           </div>
 
           {loading ? (
-            <p className="text-center py-12">Loading feeds...</p>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="animate-pulse bg-card border border-border rounded-xl h-96 w-full flex flex-col">
+                  <div className="flex items-center gap-3 p-4 border-b border-border">
+                    <div className="w-10 h-10 rounded-full bg-muted"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 bg-muted rounded"></div>
+                      <div className="h-3 w-20 bg-muted rounded"></div>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 w-full bg-muted rounded"></div>
+                    <div className="h-4 w-4/5 bg-muted rounded"></div>
+                  </div>
+                  <div className="bg-muted flex-grow m-4 rounded-lg mt-0"></div>
+                </div>
+              ))}
+            </div>
           ) : filteredPosts.length === 0 ? (
             <p className="text-center py-12 text-muted-foreground">No feeds found</p>
           ) : (
