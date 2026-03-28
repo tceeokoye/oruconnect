@@ -19,8 +19,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ message: "Provider not found" }, { status: 404 })
     }
 
-    // Deterministic mock generation based on name length to prevent jumping on reload
-    const pseudoRandom = provider.name.length % 5;
+    const totalBookings = await prisma.booking.count({
+      where: { service: { professionalId: provider.id } }
+    })
+
+    const completedBookings = await prisma.booking.count({
+      where: { 
+        service: { professionalId: provider.id }, 
+        status: "COMPLETED" 
+      }
+    })
+
+    const completionRate = totalBookings > 0 ? Math.round((completedBookings / totalBookings) * 100) : 100
+    const totalLikes = provider.posts.reduce((acc: number, post: any) => acc + (post.likes || 0), 0)
+    const totalReviews = totalBookings + totalLikes
     
     const formattedProvider = {
       id: provider.id,
@@ -31,17 +43,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       subcategory: provider.services[0]?.title || "General",
       state: provider.state || provider.location?.split(',')[1]?.trim() || "Nigeria",
       city: provider.city || provider.location?.split(',')[0]?.trim() || "Local",
-      rating: Number((4.5 + (pseudoRandom * 0.1)).toFixed(1)),
-      reviews: 12 + (pseudoRandom * 14),
+      rating: totalReviews > 0 ? 5.0 : Number((4.5 + ((provider.name.length % 5) * 0.1)).toFixed(1)),
+      reviews: totalReviews,
       verified: provider.isVerified,
       joinedDate: provider.user.createdAt.toISOString(),
       phone: provider.phone || provider.user.phone || "N/A",
       email: provider.user.email,
       website: "Profile available exclusively on OruConnect",
       responseTime: "Usually responds under 2 hours",
-      completionRate: 95 + pseudoRandom,
+      completionRate: completionRate,
       image: provider.faceImage || provider.user?.profileImage || provider.profileImage || "/placeholder.svg",
-      gallery: provider.portfolio.map((p: any) => p.mediaUrl).concat(provider.posts.map((p: any) => p.mediaUrl)).filter(Boolean),
+      gallery: provider.portfolio.map((p: any) => ({ url: p.mediaUrl, type: "image" }))
+        .concat(provider.posts.map((p: any) => ({
+          url: p.mediaUrl,
+          type: p.mediaUrl?.includes(".mp4") || p.mediaUrl?.includes(".webm") ? "video" : "image"
+        })))
+        .filter((media: any) => Boolean(media.url)),
       recentJobs: provider.services.map((s: any) => ({ title: s.title, status: "completed", rating: 5 })).slice(0, 3)
     }
 

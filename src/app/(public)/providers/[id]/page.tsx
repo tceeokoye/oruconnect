@@ -223,19 +223,34 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
         >
           <h2 className="text-2xl font-bold">Gallery</h2>
           <div className="grid md:grid-cols-4 gap-4">
-            {provider.gallery.map((image: string, index: number) => (
-              <motion.div
-                key={index}
-                className="rounded-lg overflow-hidden cursor-pointer h-48"
-                whileHover={{ scale: 1.05 }}
-              >
-                <img
-                  src={image || "/placeholder.svg"}
-                  alt={`Gallery ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              </motion.div>
-            ))}
+            {provider.gallery.length > 0 ? (
+              provider.gallery.map((media: any, index: number) => (
+                <motion.div
+                  key={index}
+                  className="rounded-lg overflow-hidden cursor-pointer h-48 relative bg-muted"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {media.type === "video" ? (
+                    <video
+                      src={media.url}
+                      className="w-full h-full object-cover"
+                      controls
+                    />
+                  ) : (
+                    <img
+                      src={media.url || "/placeholder.svg"}
+                      alt={`Gallery ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl">
+                <p className="text-muted-foreground font-medium">No portfolio items available.</p>
+                <p className="text-sm text-muted-foreground mt-1">This provider hasn't uploaded any photos or videos yet.</p>
+              </div>
+            )}
           </div>
         </motion.div>
 
