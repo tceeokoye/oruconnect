@@ -6,13 +6,14 @@ import { Heart, MessageCircle, Share2, MoreVertical, Send } from 'lucide-react';
 import axios from 'axios';
 
 interface FeedPost {
-  _id: string;
+  id: string;
   providerId: string;
   providerName: string;
   providerAvatar?: string;
-  content: string;
-  images?: string[];
-  videos?: string[];
+  caption: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  type?: string;
   likes: number;
   comments: number;
   shares: number;
@@ -43,8 +44,10 @@ export function FeedComponent({
     const initialLikeHeart: { [key: string]: boolean } = {};
 
     posts.forEach((post) => {
-      initialLikes[post._id] = post.likes;
-      initialLikeHeart[post._id] = post.isLiked || false;
+      // Handle either 'id' or '_id' fallback
+      const postId = post.id || (post as any)._id;
+      initialLikes[postId] = post.likes;
+      initialLikeHeart[postId] = post.isLiked || false;
     });
 
     setLikes(initialLikes);
@@ -125,9 +128,12 @@ export function FeedComponent({
       transition={{ duration: 0.3 }}
     >
       <AnimatePresence>
-        {posts.map((post, index) => (
+        {posts.map((post, index) => {
+          const postId = post.id || (post as any)._id;
+          
+          return (
           <motion.div
-            key={post._id}
+            key={postId}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -138,11 +144,13 @@ export function FeedComponent({
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <motion.div
-                  className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full"
+                  className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center font-bold text-white shadow-inner"
                   whileHover={{ scale: 1.1 }}
-                />
+                >
+                  {post.providerName ? post.providerName.charAt(0).toUpperCase() : "P"}
+                </motion.div>
                 <div>
-                  <h4 className="text-white font-semibold">{post.providerName}</h4>
+                  <h4 className="text-white font-semibold">{post.providerName || "Verified Provider"}</h4>
                   <p className="text-gray-400 text-sm">
                     {new Date(post.createdAt).toLocaleDateString()}
                   </p>
@@ -159,35 +167,28 @@ export function FeedComponent({
 
             {/* Post Content */}
             <div className="p-4">
-              <p className="text-gray-100 mb-4">{post.content}</p>
+              <p className="text-gray-100 mb-4 whitespace-pre-wrap leading-relaxed">{post.caption}</p>
 
-              {/* Images Grid */}
-              {post.images && post.images.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 mb-4 rounded-lg overflow-hidden">
-                  {post.images.map((image, idx) => (
+              {/* Single Unified Media View */}
+              {post.mediaUrl && (
+                <div className="mb-4 rounded-lg overflow-hidden bg-black/20">
+                  {post.type === "text" || !post.mediaUrl?.includes(".mp4") && !post.mediaUrl?.includes(".webm") ? (
                     <motion.img
-                      key={idx}
-                      src={image}
-                      alt={`Post image ${idx + 1}`}
-                      className="w-full h-48 object-cover"
-                      whileHover={{ scale: 1.05 }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Videos */}
-              {post.videos && post.videos.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  {post.videos.map((video, idx) => (
-                    <motion.video
-                      key={idx}
-                      src={video}
-                      controls
-                      className="w-full rounded-lg"
+                      src={post.mediaUrl}
+                      alt="Post attachment"
+                      className="w-full h-auto max-h-96 object-contain"
                       whileHover={{ scale: 1.02 }}
+                      transition={{ duration: 0.2 }}
                     />
-                  ))}
+                  ) : (
+                    <motion.video
+                      src={post.mediaUrl}
+                      controls
+                      controlsList="nodownload"
+                      className="w-full h-auto max-h-96 object-contain"
+                      whileHover={{ scale: 1.01 }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -288,10 +289,10 @@ export function FeedComponent({
                     </motion.button>
                   </div>
                 </motion.div>
-              )}
             </AnimatePresence>
           </motion.div>
-        ))}
+          );
+        })}
       </AnimatePresence>
 
       {posts.length === 0 && (

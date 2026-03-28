@@ -14,7 +14,7 @@ export default function LandingPageFeed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const response = await fetch("/api/posts?status=approved&limit=6");
+        const response = await fetch("/api/posts?limit=6");
         const data = await response.json();
         setPosts(data.posts || []);
       } catch (error) {
@@ -31,9 +31,7 @@ export default function LandingPageFeed() {
   const containerVariants = {
     hidden: {},
     visible: {
-      transition: {
-        staggerChildren: 0.15, // stagger each card by 0.15s
-      },
+      transition: { staggerChildren: 0.15 },
     },
   };
 
@@ -41,6 +39,7 @@ export default function LandingPageFeed() {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 },
   };
+
   return (
     <section className="py-16 px-4 md:px-6 lg:px-8 bg-muted/30">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -61,12 +60,28 @@ export default function LandingPageFeed() {
         </motion.div>
 
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse bg-card border border-border rounded-xl h-96 w-full flex flex-col">
+                <div className="flex items-center gap-3 p-4 border-b border-border">
+                  <div className="w-10 h-10 rounded-full bg-muted"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded"></div>
+                    <div className="h-3 w-20 bg-muted rounded"></div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-2">
+                  <div className="h-4 w-full bg-muted rounded"></div>
+                  <div className="h-4 w-4/5 bg-muted rounded"></div>
+                </div>
+                <div className="bg-muted flex-grow m-4 rounded-lg mt-0"></div>
+              </div>
+            ))}
           </div>
         ) : posts.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No posts available yet</p>
+          <div className="text-center py-12 border border-border rounded-xl bg-card">
+            <p className="text-muted-foreground text-lg">No posts available yet</p>
+            <p className="text-sm text-muted-foreground/60 mt-2">Publish your first portfolio post to appear here!</p>
           </div>
         ) : (
           <motion.div
