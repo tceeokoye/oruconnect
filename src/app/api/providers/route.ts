@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       reviews: Math.floor(Math.random() * 100) + 15, // Placeholder review count
       verified: true,
       location: prof.city && prof.state ? `${prof.city}, ${prof.state}` : (prof.state || "Nigeria"),
-      image: prof.profileImage || "/placeholder.svg",
+      image: prof.faceImage || prof.user?.profileImage || prof.profileImage || "/placeholder.svg",
     }));
 
     return NextResponse.json(

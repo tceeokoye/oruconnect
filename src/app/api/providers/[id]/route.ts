@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       website: "Profile available exclusively on OruConnect",
       responseTime: "Usually responds under 2 hours",
       completionRate: 95 + pseudoRandom,
-      image: provider.profileImage || "/placeholder.svg",
+      image: provider.faceImage || provider.user?.profileImage || provider.profileImage || "/placeholder.svg",
       gallery: provider.portfolio.map((p: any) => p.mediaUrl).concat(provider.posts.map((p: any) => p.mediaUrl)).filter(Boolean),
       recentJobs: provider.services.map((s: any) => ({ title: s.title, status: "completed", rating: 5 })).slice(0, 3)
     }
