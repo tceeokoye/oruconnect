@@ -1,19 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import JobRequest from "@/models/job-request";
-import Job from "@/models/job";
-import Wallet from "@/models/wallet";
-import Escrow from "@/models/escrow";
-import Transaction from "@/models/transaction";
-import connectToDB from "@/lib/db";
-import MonifyService from "@/lib/monify-service";
+import { prisma } from "@/lib/prisma";
 import { sendJobAcceptanceEmail } from "@/lib/email-service";
-import User from "@/models/user";
-import { createAndDeliverNotification } from '@/lib/notification-service';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB();
-
     const body = await request.json();
     const { jobRequestId } = body;
 
@@ -24,9 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const jobRequest = await JobRequest.findById(jobRequestId)
-      .populate("client")
-      .populate("provider");
+    const jobRequest = await prisma.jobRequest.findUnique({
+      where: { id: jobRequestId },
+      include: { client: true, provider: { include: { user: true } }, job: true }
+    });
 
     if (!jobRequest) {
       return NextResponse.json(
@@ -42,113 +33,140 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update job request status
-    jobRequest.status = "accepted";
-    jobRequest.respondedAt = new Date();
-    jobRequest.acceptedAt = new Date();
-    await jobRequest.save();
-
-    // Create escrow for the job
-    const totalAmount = jobRequest.budget || jobRequest.negotiatedBudget || 0;
+    const totalAmount = jobRequest.negotiatedBudget || jobRequest.budget || 0;
     const platformFee = Math.round(totalAmount * 0.06); // 6% platform fee
     const providerAdvance = Math.round(totalAmount * 0.30); // 30% advance
 
-    const escrow = new Escrow({
-      jobRequestId: jobRequest._id,
-      client: jobRequest.client._id,
-      provider: jobRequest.provider._id,
-      amount: totalAmount,
-      platformFee,
-      providerAdvance,
-      status: "held",
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update job request status
+      const updatedJobRequest = await tx.jobRequest.update({
+        where: { id: jobRequest.id },
+        data: {
+          status: "accepted",
+          respondedAt: new Date(),
+          acceptedAt: new Date()
+        }
+      });
+
+      // 2. Create escrow
+      const escrow = await tx.escrow.create({
+        data: {
+          jobRequestId: jobRequest.id,
+          clientId: jobRequest.clientId,
+          providerId: jobRequest.providerId,
+          amount: totalAmount,
+          platformFee,
+          providerAdvance,
+          status: "held",
+        }
+      });
+
+      // 3. Debit client's wallet
+      await tx.wallet.upsert({
+        where: { userId: jobRequest.clientId },
+        update: {
+          availableBalance: { decrement: totalAmount },
+          escrowBalance: { increment: totalAmount },
+          totalSpent: { increment: totalAmount }
+        },
+        create: {
+          userId: jobRequest.clientId,
+          availableBalance: 0,
+          escrowBalance: totalAmount,
+          totalSpent: totalAmount
+        }
+      });
+
+      // 4. Credit provider with advance (30%)
+      await tx.wallet.upsert({
+        where: { userId: jobRequest.providerId },
+        update: {
+          availableBalance: { increment: providerAdvance },
+          totalEarned: { increment: providerAdvance }
+        },
+        create: {
+          userId: jobRequest.providerId,
+          availableBalance: providerAdvance,
+          escrowBalance: 0,
+          totalEarned: providerAdvance
+        }
+      });
+
+      // 5. Create transaction records
+      await tx.transaction.create({
+        data: {
+          transactionId: `TXN_${Date.now()}_CLIENT`,
+          type: "debit",
+          userId: jobRequest.clientId,
+          relatedUserId: jobRequest.providerId,
+          jobRequestId: jobRequest.id,
+          escrowId: escrow.id,
+          amount: totalAmount,
+          status: "completed",
+          description: `Payment for job: ${jobRequest.jobDescription}`,
+          platformFee,
+          providerAmount: totalAmount - platformFee,
+        }
+      });
+
+      await tx.transaction.create({
+        data: {
+          transactionId: `TXN_${Date.now()}_PROVIDER`,
+          type: "credit",
+          userId: jobRequest.providerId,
+          relatedUserId: jobRequest.clientId,
+          jobRequestId: jobRequest.id,
+          escrowId: escrow.id,
+          amount: providerAdvance,
+          status: "completed",
+          description: `Advance payment for accepted job`,
+        }
+      });
+
+      // 6. Notifications: provider and client
+      await tx.notification.create({
+        data: {
+          userId: jobRequest.providerId,
+          content: JSON.stringify({
+            type: 'job_update',
+            title: 'Job accepted',
+            message: `Your job has been accepted: ${jobRequest.jobDescription}`,
+            jobRequestId: jobRequest.id
+          }),
+          isRead: false
+        }
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: jobRequest.clientId,
+          content: JSON.stringify({
+            type: 'payment',
+            title: 'Payment held in escrow',
+            message: `Payment of ₦${totalAmount} has been held in escrow for your job.`,
+            jobRequestId: jobRequest.id,
+            escrowId: escrow.id
+          }),
+          isRead: false
+        }
+      });
+
+      return { updatedJobRequest, escrow };
     });
-
-    await escrow.save();
-
-    // Debit client's wallet
-    let clientWallet = await Wallet.findOne({ userId: jobRequest.client._id });
-    if (!clientWallet) {
-      clientWallet = new Wallet({ userId: jobRequest.client._id });
-    }
-
-    clientWallet.balance -= totalAmount;
-    clientWallet.lockedBalance += totalAmount;
-    clientWallet.totalSpent += totalAmount;
-    await clientWallet.save();
-
-    // Credit provider with advance (30%)
-    let providerWallet = await Wallet.findOne({ userId: jobRequest.provider._id });
-    if (!providerWallet) {
-      providerWallet = new Wallet({ userId: jobRequest.provider._id });
-    }
-
-    providerWallet.balance += providerAdvance;
-    providerWallet.totalEarned += providerAdvance;
-    await providerWallet.save();
-
-    // Create transaction records
-    const clientTransaction = new Transaction({
-      transactionId: `TXN_${Date.now()}_CLIENT`,
-      type: "debit",
-      userId: jobRequest.client._id,
-      relatedUserId: jobRequest.provider._id,
-      jobRequestId: jobRequest._id,
-      escrowId: escrow._id,
-      amount: totalAmount,
-      status: "completed",
-      description: `Payment for job: ${jobRequest.jobDescription}`,
-      platformFee,
-      providerAmount: totalAmount - platformFee,
-    });
-
-    const providerTransaction = new Transaction({
-      transactionId: `TXN_${Date.now()}_PROVIDER`,
-      type: "credit",
-      userId: jobRequest.provider._id,
-      relatedUserId: jobRequest.client._id,
-      jobRequestId: jobRequest._id,
-      escrowId: escrow._id,
-      amount: providerAdvance,
-      status: "completed",
-      description: `Advance payment for accepted job`,
-    });
-
-    await clientTransaction.save();
-    await providerTransaction.save();
 
     // Send email to client confirming acceptance
-    const dashboardLink = `${process.env.NEXT_PUBLIC_APP_URL}/client/jobs/${jobRequest._id}`;
-    await sendJobAcceptanceEmail(
-      jobRequest.client.email,
-      jobRequest.client.firstName,
-      jobRequest.provider.firstName,
-      jobRequest.jobDescription,
-      dashboardLink
-    );
-
-    // Notifications: provider and client
-    try {
-      await createAndDeliverNotification({
-        userId: jobRequest.provider._id.toString(),
-        type: 'job_update',
-        title: 'Job accepted',
-        message: `Your job has been accepted: ${jobRequest.jobDescription}`,
-        data: { jobRequestId: jobRequest._id },
-      })
-    } catch (e) {
-      console.warn('Failed to notify provider about job acceptance', e)
-    }
-
-    try {
-      await createAndDeliverNotification({
-        userId: jobRequest.client._id.toString(),
-        type: 'payment',
-        title: 'Payment held in escrow',
-        message: `Payment of ₦${totalAmount} has been held in escrow for your job.`,
-        data: { jobRequestId: jobRequest._id, escrowId: escrow._id },
-      })
-    } catch (e) {
-      console.warn('Failed to notify client about escrow', e)
+    if (jobRequest.client) {
+      const dashboardLink = `${process.env.NEXT_PUBLIC_APP_URL}/client/jobs/${jobRequest.id}`;
+      // Professional name is stored differently; Prisma user has 'name'
+      const providerName = jobRequest.provider?.name || "Provider";
+      
+      await sendJobAcceptanceEmail(
+        jobRequest.client.email,
+        jobRequest.client.name,
+        providerName,
+        jobRequest.jobDescription,
+        dashboardLink
+      );
     }
 
     return NextResponse.json(
@@ -156,8 +174,8 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "Job request accepted successfully",
         data: {
-          jobRequest,
-          escrow,
+          jobRequest: result.updatedJobRequest,
+          escrow: result.escrow,
         },
       },
       { status: 200 }

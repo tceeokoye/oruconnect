@@ -1,18 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import MonifyService from "@/lib/monify-service"
-import connectToDB from "@/lib/db"
-import Transaction from "@/models/transaction"
-import Wallet from "@/models/wallet"
-import Escrow from "@/models/escrow"
-import JobRequest from "@/models/job-request"
+import { prisma } from "@/lib/prisma"
 import { sendPaymentConfirmationEmail } from "@/lib/email-service"
-import User from "@/models/user"
-import { createAndDeliverNotification } from '@/lib/notification-service';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB()
-    
     const body = await request.json()
 
     if (!body.reference || !body.jobRequestId) {
@@ -29,84 +21,99 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update transaction status
-    const transaction = await Transaction.findOne({
-      transactionId: body.reference,
-    })
+    const totalAmount = verifyResponse.data.amount
+    const platformFee = Math.round(totalAmount * 0.06)
+    const providerAdvance = Math.round(totalAmount * 0.30)
+    const remainingEscrow = totalAmount - platformFee - providerAdvance
 
-    if (transaction) {
-      transaction.status = "completed"
-      await transaction.save()
-    }
+    await prisma.$transaction(async (tx) => {
+      // 1. Update transaction status
+      const transaction = await tx.transaction.findUnique({
+        where: { transactionId: body.reference }
+      });
 
-    // Get job request and create escrow
-    const jobRequest = await JobRequest.findById(body.jobRequestId)
-      .populate("client")
-      .populate("provider")
+      if (transaction && transaction.status === "pending") {
+        await tx.transaction.update({
+          where: { id: transaction.id },
+          data: { status: "completed" }
+        })
+      }
 
-    if (jobRequest) {
-      const totalAmount = verifyResponse.data.amount
-      const platformFee = Math.round(totalAmount * 0.06)
-      const providerAdvance = Math.round(totalAmount * 0.30)
-
-      // Create escrow
-      const escrow = new Escrow({
-        jobRequestId: body.jobRequestId,
-        client: jobRequest.client._id,
-        provider: jobRequest.provider._id,
-        amount: totalAmount,
-        platformFee,
-        providerAdvance,
-        status: "held",
-        monifyReference: body.reference,
+      // 2. Get job request
+      const jobRequest = await tx.jobRequest.findUnique({
+        where: { id: body.jobRequestId },
+        include: { client: true, provider: true } // Assuming provider links to Professional, but here it's User via Professional
       })
 
-      await escrow.save()
-
-      // Update wallets
-      let clientWallet = await Wallet.findOne({ userId: jobRequest.client._id })
-      if (!clientWallet) {
-        clientWallet = new Wallet({ userId: jobRequest.client._id })
-      }
-      clientWallet.lockedBalance += totalAmount
-      await clientWallet.save()
-
-      // Send confirmation email
-      const user = await User.findById(jobRequest.client._id)
-      if (user) {
-        await sendPaymentConfirmationEmail(
-          user.email,
-          user.firstName,
-          totalAmount,
-          body.reference,
-          jobRequest.jobDescription
-        )
-      }
-      // notify client (payer) and provider (payee)
-      try {
-        await createAndDeliverNotification({
-          userId: jobRequest.client._id.toString(),
-          type: 'payment',
-          title: 'Payment received',
-          message: `Your payment of ₦${totalAmount} was successful.`,
-          data: { jobRequestId: jobRequest._id, escrowId: escrow._id },
+      if (jobRequest) {
+        // 3. Create Escrow
+        const escrow = await tx.escrow.create({
+          data: {
+            jobRequestId: body.jobRequestId,
+            clientId: jobRequest.clientId,
+            providerId: jobRequest.providerId,
+            amount: remainingEscrow,
+            platformFee,
+            providerAdvance,
+            status: "held",
+            monifyReference: body.reference,
+          }
         })
-      } catch (e) {
-        console.warn('Failed to notify client about payment', e)
-      }
 
-      try {
-        await createAndDeliverNotification({
-          userId: jobRequest.provider._id.toString(),
-          type: 'payment',
-          title: 'Payment deposited',
-          message: `A payment of ₦${totalAmount} was deposited to your account.`,
-          data: { jobRequestId: jobRequest._id, escrowId: escrow._id },
+        // 4. Update Client Wallet
+        await tx.wallet.upsert({
+          where: { userId: jobRequest.clientId },
+          update: { totalSpent: { increment: totalAmount } },
+          create: {
+            userId: jobRequest.clientId,
+            availableBalance: 0,
+            escrowBalance: 0,
+            totalSpent: totalAmount,
+            totalEarned: 0
+          }
         })
-      } catch (e) {
-        console.warn('Failed to notify provider about payment', e)
+
+        // 5. Send Email
+        if (jobRequest.client) {
+          await sendPaymentConfirmationEmail(
+            jobRequest.client.email,
+            jobRequest.client.name, // Prisma uses 'name'
+            totalAmount,
+            body.reference,
+            jobRequest.jobDescription
+          )
+        }
+
+        // 6. Notifications
+        await tx.notification.create({
+          data: {
+            userId: jobRequest.clientId,
+            content: JSON.stringify({
+              type: 'payment',
+              title: 'Payment successful',
+              message: `Your payment of ₦${totalAmount} was successful.`,
+              jobRequestId: jobRequest.id,
+              escrowId: escrow.id
+            }),
+            isRead: false
+          }
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: jobRequest.providerId,
+            content: JSON.stringify({
+              type: 'payment',
+              title: 'Payment deposited',
+              message: `A payment of ₦${totalAmount} was deposited to your account.`,
+              jobRequestId: jobRequest.id,
+              escrowId: escrow.id
+            }),
+            isRead: false
+          }
+        });
       }
-    }
+    });
 
     return NextResponse.json(
       {

@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { useSelector } from "react-redux"
 import { motion } from "framer-motion"
-import { Search, Briefcase, Calendar, MapPin, Loader2 } from "lucide-react"
+import { Search, Briefcase, Calendar, MapPin, Loader2, MessageCircle } from "lucide-react"
 import type { RootState } from "@/store"
+import { useRouter } from "next/navigation"
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: "bg-yellow-500/10", text: "text-yellow-600" },
@@ -16,6 +17,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function JobsPage() {
   const token = useSelector((state: RootState) => state.auth.token)
+  const router = useRouter()
   
   const [jobs, setJobs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -138,7 +140,7 @@ export default function JobsPage() {
                       <p className="font-bold text-xl">₦{Number(job.budget || 0).toLocaleString()}</p>
                       <div className="flex justify-end mt-2">
                         <p className={`text-xs font-bold px-3 py-1 rounded-full ${colors.bg} ${colors.text} inline-flex`}>
-                          {job.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                          {job.status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
                         </p>
                       </div>
                     </div>
@@ -146,11 +148,66 @@ export default function JobsPage() {
                 </div>
 
                 <div className="border-t border-border pt-4 flex gap-2">
-                  <button className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm font-medium">
-                    View Details
+                  <button 
+                    onClick={() => router.push('/dashboard/provider/messages')}
+                    className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Message Client
                   </button>
+                  {job.status === "pending" && (
+                     <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/provider/jobs/${job.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ action: 'accept', type: job.type })
+                              });
+                              if (res.ok) router.push('/dashboard/provider/messages');
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
+                          className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          Accept
+                        </button>
+                        <button
+                           onClick={async () => {
+                             try {
+                               const res = await fetch(`/api/provider/jobs/${job.id}`, {
+                                 method: 'PATCH',
+                                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                 body: JSON.stringify({ action: 'decline', type: job.type })
+                               });
+                               if (res.ok) window.location.reload();
+                             } catch (e) {
+                               console.error(e);
+                             }
+                           }}
+                           className="flex-1 px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                        >
+                          Decline
+                        </button>
+                     </>
+                  )}
                   {job.status === "in_progress" && (
-                    <button className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium">
+                    <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/provider/jobs/${job.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ action: 'complete', type: job.type })
+                            });
+                            if (res.ok) window.location.reload();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                    >
                       Mark Complete
                     </button>
                   )}

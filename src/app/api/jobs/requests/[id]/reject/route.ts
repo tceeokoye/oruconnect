@@ -1,19 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server";
-import JobRequest from "@/models/job-request";
-import connectToDB from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDB();
-
     const { id } = await params;
     const body = await request.json();
     const { reason } = body;
 
-    const jobRequest = await JobRequest.findById(id);
+    const jobRequest = await prisma.jobRequest.findUnique({
+      where: { id }
+    });
+
     if (!jobRequest) {
       return NextResponse.json(
         { message: "Job request not found" },
@@ -28,12 +28,16 @@ export async function POST(
       );
     }
 
-    jobRequest.status = "rejected";
-    jobRequest.respondedAt = new Date();
-    await jobRequest.save();
+    const updatedJobRequest = await prisma.jobRequest.update({
+      where: { id },
+      data: {
+        status: "rejected",
+        respondedAt: new Date()
+      }
+    });
 
     return NextResponse.json(
-      { success: true, message: "Job request rejected", data: jobRequest },
+      { success: true, message: "Job request rejected", data: updatedJobRequest },
       { status: 200 }
     );
   } catch (error) {

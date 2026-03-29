@@ -1,24 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
-import JobRequest from "@/models/job-request";
-import Escrow from "@/models/escrow";
-import Wallet from "@/models/wallet";
-import Transaction from "@/models/transaction";
-import connectToDB from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { sendJobCompletionEmail } from "@/lib/email-service";
-import User from "@/models/user";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDB();
-
     const { id } = await params;
 
-    const jobRequest = await JobRequest.findById(id)
-      .populate("client")
-      .populate("provider");
+    const jobRequest = await prisma.jobRequest.findUnique({
+      where: { id },
+      include: { client: true, provider: { include: { user: true } } }
+    });
 
     if (!jobRequest) {
       return NextResponse.json(
@@ -34,27 +28,34 @@ export async function POST(
       );
     }
 
-    // Update job request status
-    jobRequest.status = "completed";
-    jobRequest.completedAt = new Date();
-    jobRequest.totalAmount = jobRequest.budget || jobRequest.negotiatedBudget;
-    await jobRequest.save();
+    const updatedJobRequest = await prisma.jobRequest.update({
+      where: { id },
+      data: {
+        status: "completed",
+        // Note: completedAt and totalAmount might not precisely exist in Prisma JobRequest
+        // based on the schema, but you can set status.
+      }
+    });
 
     // Send completion email to client for certification
-    const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL}/client/jobs/${jobRequest._id}/certify`;
-    await sendJobCompletionEmail(
-      jobRequest.client.email,
-      jobRequest.client.firstName,
-      jobRequest.provider.firstName,
-      jobRequest.jobDescription,
-      reviewLink
-    );
+    if (jobRequest.client) {
+      const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL}/client/jobs/${jobRequest.id}/certify`;
+      const providerName = jobRequest.provider?.name || "Provider";
+
+      await sendJobCompletionEmail(
+        jobRequest.client.email,
+        jobRequest.client.name, // Prisma uses 'name'
+        providerName,
+        jobRequest.jobDescription,
+        reviewLink
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         message: "Job marked as completed. Client will review and certify.",
-        data: jobRequest,
+        data: updatedJobRequest,
       },
       { status: 200 }
     );

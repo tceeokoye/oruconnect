@@ -39,6 +39,7 @@ model User {
   state               String?
   city                String?
   profileImage        String?   @map("profile_image")
+  verified            Boolean   @default(false)
 
   professional  Professional?
   bookings      Booking[]
@@ -47,6 +48,18 @@ model User {
   transactions  Transaction[]
   jobs          Job[]         @relation("ClientJobs")
   jobRequests   JobRequest[]  @relation("ClientRequests")
+  
+  // New Relational Links
+  conversationsAsParticipant ConversationParticipant[]
+  messagesSent               Message[]                 @relation("MessageSender")
+  ratingsGiven               Rating[]                  @relation("RatingClient")
+  ratingsReceived            Rating[]                  @relation("RatingProvider")
+  helpTickets                HelpTicket[]              @relation("ClientHelpTickets")
+  disputesAsComplainant      Dispute[]                 @relation("Complainant")
+  disputesAsDefendant        Dispute[]                 @relation("Defendant")
+  disputesResolved           Dispute[]                 @relation("ResolvedBy")
+  notificationPreferences    NotificationPreference?
+  deviceTokens               DeviceToken[]             @relation("UserDeviceTokens")
 
   @@map("users")
 }
@@ -149,11 +162,39 @@ model Notification {
   @@map("notifications")
 }
 
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  email       Boolean  @default(true)
+  push        Boolean  @default(true)
+  sms         Boolean  @default(false)
+  jobAlerts   Boolean  @default(true) @map("job_alerts")
+  messages    Boolean  @default(true)
+  marketing   Boolean  @default(false)
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("notification_preferences")
+}
+
+model DeviceToken {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  token       String   @unique
+  deviceType  String?  @map("device_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User     @relation("UserDeviceTokens", fields: [userId], references: [id], onDelete: Cascade)
+  @@map("device_tokens")
+}
+
 model Wallet {
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
   availableBalance Float    @default(0.0) @map("available_balance")
   escrowBalance    Float    @default(0.0) @map("escrow_balance")
+  totalEarned      Float    @default(0.0) @map("total_earned")
+  totalSpent       Float    @default(0.0) @map("total_spent")
 
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -165,17 +206,47 @@ model Transaction {
   transactionId   String   @unique @map("transaction_id")
   type            String   
   userId          String   @map("user_id")
+  relatedUserId   String?  @map("related_user_id")
+  jobRequestId    String?  @map("job_request_id")
+  escrowId        String?  @map("escrow_id")
   amount          Float
   status          String   @default("pending")
   description     String?
   paymentMethod   String?  @map("payment_method")
+  paymentReference String? @map("payment_reference")
+  platformFee     Float?   @map("platform_fee")
+  providerAmount  Float?   @map("provider_amount")
   metadata        Json?
 
   createdAt       DateTime @default(now()) @map("created_at")
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  escrow          Escrow?  @relation(fields: [escrowId], references: [id], onDelete: SetNull)
 
   @@map("transactions")
+}
+
+model Escrow {
+  id              String   @id @default(uuid())
+  jobRequestId    String   @map("job_request_id")
+  clientId        String   @map("client_id")
+  providerId      String   @map("provider_id")
+  amount          Float
+  platformFee     Float    @default(0.0) @map("platform_fee")
+  providerAdvance Float    @default(0.0) @map("provider_advance")
+  status          String   @default("held") // held, partial_released, completed, disputed, refunded
+  monifyReference String?  @map("monify_reference")
+  
+  advanceReleasedAt DateTime? @map("advance_released_at")
+  completedAt       DateTime? @map("completed_at")
+  refundedAt        DateTime? @map("refunded_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  jobRequest        JobRequest    @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  disputes          Dispute[]
+
+  @@map("escrows")
 }
 
 model Job {
@@ -207,14 +278,47 @@ model JobRequest {
   timeframe        String
   status           String       @default("pending")
   message          String
+  negotiatedBudget Float?       @map("negotiated_budget")
 
   createdAt        DateTime     @default(now()) @map("created_at")
+  respondedAt      DateTime?    @map("responded_at")
+  acceptedAt       DateTime?    @map("accepted_at")
 
   job              Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   client           User         @relation("ClientRequests", fields: [clientId], references: [id], onDelete: Cascade)
   provider         Professional @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
+  escrows          Escrow[]
+  disputes         Dispute[]
+
   @@map("job_requests")
+}
+
+model Dispute {
+  id               String       @id @default(uuid())
+  jobRequestId     String       @map("job_request_id")
+  escrowId         String       @map("escrow_id")
+  complainantId    String       @map("complainant_id")
+  defendantId      String       @map("defendant_id")
+  title            String
+  description      String
+  evidence         String[]     @default([])
+  status           String       @default("open") // open, under_review, resolved, escalated
+  resolution       String?
+  resolutionType   String?      @map("resolution_type") // full_refund, partial_refund, complete_release, split
+  resolvedById     String?      @map("resolved_by_id")
+  
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  resolvedAt       DateTime?    @map("resolved_at")
+
+  jobRequest       JobRequest   @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+  escrow           Escrow       @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  complainant      User         @relation("Complainant", fields: [complainantId], references: [id], onDelete: Cascade)
+  defendant        User         @relation("Defendant", fields: [defendantId], references: [id], onDelete: Cascade)
+  resolvedBy       User?        @relation("ResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@map("disputes")
 }
 
 model Post {
@@ -234,7 +338,111 @@ model Post {
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
-  provider        Professional  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider        Professional @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@map("posts")
+}
+
+model Rating {
+  id              String       @id @default(uuid())
+  jobRequestId    String       @map("job_request_id")
+  clientId        String       @map("client_id")
+  providerId      String       @map("provider_id")
+  rating          Int
+  review          String?
+  
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  client          User         @relation("RatingClient", fields: [clientId], references: [id], onDelete: Cascade)
+  provider        User         @relation("RatingProvider", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("ratings")
+}
+
+model HelpTicket {
+  id                    String        @id @default(uuid())
+  userId                String        @map("user_id")
+  title                 String
+  description           String
+  category              String        @default("general") 
+  priority              String        @default("medium")
+  status                String        @default("open")
+  assignedToAdminId     String?       @map("assigned_to_admin_id")
+  transferredToTechAdmin Boolean      @default(false) @map("transferred_to_tech_admin")
+  resolutionNotes       String?       @map("resolution_notes")
+  relatedJobRequestId   String?       @map("related_job_request_id")
+  resolvedById          String?       @map("resolved_by_id")
+  
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  resolvedAt            DateTime?     @map("resolved_at")
+
+  user                  User          @relation("ClientHelpTickets", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("help_tickets")
+}
+
+model Conversation {
+  id                   String        @id @default(uuid())
+  relatedJobRequestId  String?       @map("related_job_request_id")
+  lastMessage          String?       @map("last_message")
+  lastMessageAt        DateTime?     @map("last_message_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  participants         ConversationParticipant[]
+  messages             Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  userId         String       @map("user_id")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  senderId       String       @map("sender_id")
+  recipientId    String?      @map("recipient_id")  // Optional if group chat, required for 1-1
+  content        String
+  attachments    String[]     @default([])
+  read           Boolean      @default(false)
+  readAt         DateTime?    @map("read_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  otp       String
+  purpose   String   @default("verification")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("otps")
+}
+
+model TwoFactorAuth {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  secret    String
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("two_factor_auths")
 }

@@ -137,7 +137,7 @@ export default function ClientJobsPage() {
 
               return (
                 <motion.div
-                  key={job._id}
+                  key={job.id}
                   whileHover={{ y: -4 }}
                   className="bg-card border border-border/50 rounded-2xl p-6 space-y-5 shadow-sm hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
                 >
@@ -193,7 +193,7 @@ export default function ClientJobsPage() {
                         variant={hasProposals ? "default" : "outline"}
                         className="w-full justify-between"
                         disabled={!hasProposals}
-                        onClick={() => setExpandedJobId(expandedJobId === job._id ? null : job._id)}
+                        onClick={() => setExpandedJobId(expandedJobId === job.id ? null : job.id)}
                       >
                         <span className="flex items-center gap-2">
                           <FileText className="w-4 h-4" />
@@ -201,10 +201,10 @@ export default function ClientJobsPage() {
                         </span>
                       </Button>
 
-                      {expandedJobId === job._id && (
+                      {expandedJobId === job.id && (
                         <div className="mt-4 space-y-3 pl-4 border-l-2 border-primary/20">
                           {job.proposals.map((proposal: any) => (
-                            <div key={proposal._id} className="bg-muted rounded-md p-4 space-y-2">
+                            <div key={proposal.id} className="bg-muted rounded-md p-4 space-y-2">
                               <div className="flex justify-between items-start">
                                 <div>
                                   <p className="font-semibold text-sm">
@@ -227,7 +227,7 @@ export default function ClientJobsPage() {
                                   <Button 
                                     size="sm" 
                                     className="h-8"
-                                    onClick={() => handleAcceptProposal(proposal._id)}
+                                    onClick={() => handleAcceptProposal(proposal.id)}
                                   >
                                     <CheckCircle className="w-3 h-3 mr-2" /> Accept
                                   </Button>
@@ -246,7 +246,7 @@ export default function ClientJobsPage() {
                         <MessageCircle className="w-4 h-4 mr-2" />
                         Chat
                       </Button>
-                      <Button className="flex-1" onClick={() => handleCompleteJob(job._id)}>
+                      <Button className="flex-1" onClick={() => handleCompleteJob(job.id)}>
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Mark Complete
                       </Button>

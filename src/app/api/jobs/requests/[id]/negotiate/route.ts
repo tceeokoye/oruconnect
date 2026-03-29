@@ -1,14 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import JobRequest from "@/models/job-request";
-import connectToDB from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDB();
-
     const { id } = await params;
     const body = await request.json();
     const { proposedBudget } = body;
@@ -20,7 +17,10 @@ export async function POST(
       );
     }
 
-    const jobRequest = await JobRequest.findById(id);
+    const jobRequest = await prisma.jobRequest.findUnique({
+      where: { id }
+    });
+
     if (!jobRequest) {
       return NextResponse.json(
         { message: "Job request not found" },
@@ -35,16 +35,19 @@ export async function POST(
       );
     }
 
-    jobRequest.status = "negotiating";
-    jobRequest.negotiatedBudget = proposedBudget;
-    jobRequest.updatedAt = new Date();
-    await jobRequest.save();
+    const updatedJobRequest = await prisma.jobRequest.update({
+      where: { id },
+      data: {
+        status: "negotiating",
+        negotiatedBudget: proposedBudget,
+      }
+    });
 
     return NextResponse.json(
       {
         success: true,
         message: "Counter proposal sent",
-        data: jobRequest,
+        data: updatedJobRequest,
       },
       { status: 200 }
     );

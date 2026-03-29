@@ -1,13 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import MonifyService from "@/lib/monify-service"
-import connectToDB from "@/lib/db"
-import Transaction from "@/models/transaction"
-import User from "@/models/user"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB()
-    
     const body = await request.json()
     if (!body.amount || !body.email || !body.jobRequestId || !body.userId) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 })
@@ -19,7 +15,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user details
-    const user = await User.findById(body.userId)
+    const user = await prisma.user.findUnique({
+      where: { id: body.userId }
+    })
+    
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
@@ -28,8 +27,8 @@ export async function POST(request: NextRequest) {
     const monifyResponse = await MonifyService.initializePayment({
       amount: body.amount,
       email: body.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: user.name, // Prisma uses 'name' not 'firstName'
+      lastName: "", // Handle split name if needed, but Monify handles it
       reference: `ORU_${body.jobRequestId}_${Date.now()}`,
       metadata: {
         jobRequestId: body.jobRequestId,
@@ -46,19 +45,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create pending transaction record
-    const transaction = new Transaction({
-      transactionId: monifyResponse.data.reference,
-      type: "debit",
-      userId: body.userId,
-      amount: body.amount,
-      status: "pending",
-      description: `Payment for job request: ${body.jobRequestId}`,
-      paymentReference: monifyResponse.data.reference,
-      paymentMethod: "card",
-      jobRequestId: body.jobRequestId, // Ensure this is saved for the webhook
-    })
-
-    await transaction.save()
+    await prisma.transaction.create({
+      data: {
+        transactionId: monifyResponse.data.reference,
+        type: "debit",
+        userId: body.userId,
+        amount: body.amount,
+        status: "pending",
+        description: `Payment for job request: ${body.jobRequestId}`,
+        paymentReference: monifyResponse.data.reference,
+        paymentMethod: "card",
+        jobRequestId: body.jobRequestId, // Ensure this is saved for the webhook
+      }
+    });
 
     // Return payment initialization response
     return NextResponse.json(

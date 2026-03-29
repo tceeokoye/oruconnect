@@ -21,7 +21,30 @@ export async function POST(request: Request) {
         timeline,
         description,
       },
+      include: {
+        service: true
+      }
     });
+
+    // Notify Provider
+    if (newBooking.service?.professionalId) {
+      const provider = await prisma.professional.findUnique({
+        where: { id: newBooking.service.professionalId }
+      });
+      if (provider?.userId) {
+        await prisma.notification.create({
+          data: {
+            userId: provider.userId,
+            content: JSON.stringify({
+              title: "New Service Booking",
+              message: `${clientName} has booked your service: ${newBooking.service.title}`,
+              type: "booking"
+            }),
+            isRead: false
+          }
+        });
+      }
+    }
 
     return NextResponse.json({ success: true, data: newBooking }, { status: 201 });
   } catch (error: any) {

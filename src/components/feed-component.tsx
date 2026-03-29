@@ -65,9 +65,7 @@ export function FeedComponent({
     }));
 
     try {
-      await axios.post('/api/posts/like', {
-        postId,
-        userId: currentUserId,
+      await axios.post(`/api/posts/${postId}/interact`, {
         action: newLikeState ? 'like' : 'unlike',
       });
     } catch (error) {
@@ -82,9 +80,8 @@ export function FeedComponent({
 
   const handleShare = async (postId: string) => {
     try {
-      await axios.post('/api/posts/share', {
-        postId,
-        userId: currentUserId,
+      await axios.post(`/api/posts/${postId}/interact`, {
+        action: 'share',
       });
 
       // Copy shareable link to clipboard
@@ -103,9 +100,8 @@ export function FeedComponent({
     if (!comment?.trim()) return;
 
     try {
-      await axios.post('/api/posts/comment', {
-        postId,
-        userId: currentUserId,
+      await axios.post(`/api/posts/${postId}/interact`, {
+        action: 'comment',
         content: comment,
       });
 

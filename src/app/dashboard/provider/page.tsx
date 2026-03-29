@@ -39,6 +39,9 @@ export default function DashboardPage() {
   const totalEarnings = jobs
     .filter(j => j.status === "completed")
     .reduce((acc, curr) => acc + (Number(curr.budget) || 0), 0)
+    
+  const totalJobs = jobs.length
+  const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0
 
   const STATS = [
     {
@@ -66,10 +69,10 @@ export default function DashboardPage() {
       bgColor: "bg-emerald-500/10",
     },
     {
-      icon: Clock,
-      label: "Avg Response Time",
-      value: "2h 15m",
-      change: "Excellent",
+      icon: TrendingUp,
+      label: "Completion Rate",
+      value: isLoading ? "-" : `${completionRate}%`,
+      change: "Jobs successfully finished",
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
     },
@@ -197,7 +200,7 @@ export default function DashboardPage() {
                           : "bg-yellow-500/10 text-yellow-600"
                     }`}
                   >
-                    {job.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    {job.status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </div>
                 </div>
               </motion.div>

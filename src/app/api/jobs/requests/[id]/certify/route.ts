@@ -1,26 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server";
-import JobRequest from "@/models/job-request";
-import Escrow from "@/models/escrow";
-import Wallet from "@/models/wallet";
-import Transaction from "@/models/transaction";
-import connectToDB from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { sendPaymentReleaseEmail } from "@/lib/email-service";
-import User from "@/models/user";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDB();
-
     const { id } = await params;
     const body = await request.json();
     const { clientId } = body;
 
-    const jobRequest = await JobRequest.findById(id)
-      .populate("client")
-      .populate("provider");
+    const jobRequest = await prisma.jobRequest.findUnique({
+      where: { id },
+      include: { client: true, provider: { include: { user: true } } }
+    });
 
     if (!jobRequest) {
       return NextResponse.json(
@@ -36,7 +30,7 @@ export async function POST(
       );
     }
 
-    if (jobRequest.client._id.toString() !== clientId) {
+    if (jobRequest.clientId !== clientId) {
       return NextResponse.json(
         { message: "Only the client can certify completion" },
         { status: 403 }
@@ -44,7 +38,10 @@ export async function POST(
     }
 
     // Get escrow
-    const escrow = await Escrow.findOne({ jobRequestId: jobRequest._id });
+    const escrow = await prisma.escrow.findFirst({
+      where: { jobRequestId: jobRequest.id }
+    });
+
     if (!escrow) {
       return NextResponse.json(
         { message: "Escrow not found" },
@@ -53,64 +50,87 @@ export async function POST(
     }
 
     // Calculate final amounts
-    const totalAmount = jobRequest.totalAmount || 0;
+    const totalAmount = jobRequest.negotiatedBudget || jobRequest.budget || 0;
     const platformFee = Math.round(totalAmount * 0.06); // 6%
     const providerFinalAmount = totalAmount - platformFee;
+    const remainingToProvider = providerFinalAmount - escrow.providerAdvance;
 
-    // Release full amount to provider
-    const providerWallet = await Wallet.findOne({ userId: jobRequest.provider._id });
-    if (providerWallet) {
-      providerWallet.balance += providerFinalAmount - escrow.providerAdvance; // Add remaining amount
-      providerWallet.totalEarned += providerFinalAmount - escrow.providerAdvance;
-      await providerWallet.save();
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Release full amount to provider
+      await tx.wallet.upsert({
+        where: { userId: jobRequest.providerId },
+        update: {
+          availableBalance: { increment: remainingToProvider },
+          totalEarned: { increment: remainingToProvider }
+        },
+        create: {
+          userId: jobRequest.providerId,
+          availableBalance: remainingToProvider,
+          totalEarned: remainingToProvider
+        }
+      });
 
-    // Release locked balance from client's wallet
-    const clientWallet = await Wallet.findOne({ userId: jobRequest.client._id });
-    if (clientWallet) {
-      clientWallet.lockedBalance -= totalAmount;
-      await clientWallet.save();
-    }
+      // 2. Release locked balance from client's wallet
+      await tx.wallet.update({
+        where: { userId: jobRequest.clientId },
+        data: {
+          escrowBalance: { decrement: totalAmount }
+        }
+      });
 
-    // Create transaction for final payment
-    const finalPaymentTransaction = new Transaction({
-      transactionId: `TXN_${Date.now()}_FINAL`,
-      type: "credit",
-      userId: jobRequest.provider._id,
-      relatedUserId: jobRequest.client._id,
-      jobRequestId: jobRequest._id,
-      escrowId: escrow._id,
-      amount: providerFinalAmount - escrow.providerAdvance,
-      status: "completed",
-      description: `Final payment for completed job: ${jobRequest.jobDescription}`,
-      platformFee,
+      // 3. Create transaction for final payment
+      await tx.transaction.create({
+        data: {
+          transactionId: `TXN_${Date.now()}_FINAL`,
+          type: "credit",
+          userId: jobRequest.providerId,
+          relatedUserId: jobRequest.clientId,
+          jobRequestId: jobRequest.id,
+          escrowId: escrow.id,
+          amount: remainingToProvider,
+          status: "completed",
+          description: `Final payment for completed job: ${jobRequest.jobDescription}`,
+          platformFee,
+        }
+      });
+
+      // 4. Create platform fee transaction
+      await tx.transaction.create({
+        data: {
+          transactionId: `TXN_${Date.now()}_PLATFORM`,
+          type: "platform_fee",
+          userId: jobRequest.providerId,
+          amount: platformFee,
+          status: "completed",
+          description: "Platform service fee (6%)",
+        }
+      });
+
+      // 5. Update escrow status
+      const updatedEscrow = await tx.escrow.update({
+        where: { id: escrow.id },
+        data: {
+          status: "completed",
+          completedAt: new Date()
+        }
+      });
+
+      // 6. Update Job Request Status (optional but good practice to close it out here or add a specific state)
+      // Usually "certified" or keep it "completed".
+      // Let's just update the timestamp.
+
+      return updatedEscrow;
     });
-
-    // Create platform fee transaction
-    const platformFeeTransaction = new Transaction({
-      transactionId: `TXN_${Date.now()}_PLATFORM`,
-      type: "platform_fee",
-      userId: jobRequest.provider._id,
-      amount: platformFee,
-      status: "completed",
-      description: "Platform service fee (6%)",
-    });
-
-    await finalPaymentTransaction.save();
-    await platformFeeTransaction.save();
-
-    // Update escrow status
-    escrow.status = "completed";
-    escrow.completedAt = new Date();
-    await escrow.save();
 
     // Send payment release email to provider
-    await sendPaymentReleaseEmail(
-      jobRequest.provider.email,
-      jobRequest.provider.firstName,
-      totalAmount,
-      platformFee
-    );
+    if (jobRequest.provider && jobRequest.provider.user) {
+      await sendPaymentReleaseEmail(
+        jobRequest.provider.user.email,
+        jobRequest.provider.name, // Using 'name' mapped from Prisma
+        totalAmount,
+        platformFee
+      );
+    }
 
     return NextResponse.json(
       {
@@ -118,7 +138,7 @@ export async function POST(
         message: "Job certified and payment released to provider",
         data: {
           jobRequest,
-          escrow,
+          escrow: result,
           providerEarnings: providerFinalAmount,
           platformFee,
         },

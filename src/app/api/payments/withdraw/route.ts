@@ -1,14 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDB from "@/lib/db";
-import Wallet from "@/models/wallet";
-import Transaction from "@/models/transaction";
-import User from "@/models/user";
+import { prisma } from "@/lib/prisma";
 import MonifyService from "@/lib/monify-service";
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB();
-
     const body = await request.json();
     const { userId, amount, accountNumber, bankCode } = body;
 
@@ -28,8 +23,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user wallet
-    const wallet = await Wallet.findOne({ userId });
-    if (!wallet || wallet.balance < amount) {
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId }
+    });
+
+    if (!wallet || wallet.availableBalance < amount) {
       return NextResponse.json(
         { message: "Insufficient balance" },
         { status: 400 }
@@ -37,7 +35,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user details
-    const user = await User.findById(userId);
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
     if (!user) {
       return NextResponse.json(
         { message: "User not found" },
@@ -75,24 +76,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update wallet
-    wallet.balance -= amount;
-    wallet.totalSpent += amount;
-    await wallet.save();
+    await prisma.$transaction(async (tx) => {
+      // Update wallet
+      await tx.wallet.update({
+        where: { userId },
+        data: {
+          availableBalance: { decrement: amount },
+          totalSpent: { increment: amount }
+        }
+      });
 
-    // Create transaction record
-    const transaction = new Transaction({
-      transactionId: transferResponse.data.reference,
-      type: "debit",
-      userId,
-      amount,
-      status: "completed",
-      description: `Withdrawal to ${accountResolution.accountName}`,
-      paymentReference: transferResponse.data.reference,
-      paymentMethod: "bank",
+      // Create transaction record
+      await tx.transaction.create({
+        data: {
+          transactionId: transferResponse.data.reference,
+          type: "debit",
+          userId,
+          amount,
+          status: "completed",
+          description: `Withdrawal to ${accountResolution.accountName}`,
+          paymentReference: transferResponse.data.reference,
+          paymentMethod: "bank",
+        }
+      });
     });
-
-    await transaction.save();
 
     return NextResponse.json(
       {

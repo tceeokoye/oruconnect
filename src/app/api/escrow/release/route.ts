@@ -1,8 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-import Escrow from "@/models/escrow"
-import connectToDB from "@/lib/db"
-import { sendNotification } from "@/lib/notifications"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,32 +9,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 })
     }
 
-    await connectToDB()
+    const escrow = await prisma.escrow.findUnique({
+      where: { id: body.escrowId },
+      include: { provider: true } // Assuming provider maps to User via Professional in some models, but here providerId maps to User
+    })
 
-    const escrow = await Escrow.findById(body.escrowId).populate("provider")
     if (!escrow) {
       return NextResponse.json({ message: "Escrow not found" }, { status: 404 })
     }
 
-    // Update real DB (since this was mocked, let's just make it real or partial real)
-    escrow.status = "completed"
-    escrow.completedAt = new Date()
-    await escrow.save()
+    if (escrow.status === "completed") {
+      return NextResponse.json({ message: "Escrow already released" }, { status: 400 })
+    }
 
-    // Send in-app notification to provider
-    await sendNotification({
-      userId: escrow.provider._id.toString(),
-      type: "payment",
-      title: "Escrow Released",
-      message: `₦${body.amount || escrow.amount} has been released to your wallet from Escrow.`,
-      refModel: "Escrow",
-      relatedId: escrow._id.toString(),
+    const releaseAmount = body.amount || escrow.amount;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Release Escrow
+      await tx.escrow.update({
+        where: { id: escrow.id },
+        data: {
+          status: "completed",
+          completedAt: new Date()
+        }
+      });
+
+      // 2. Transfer from locked/escrow to available in Wallet
+      await tx.wallet.update({
+        where: { userId: escrow.providerId },
+        data: {
+          escrowBalance: { decrement: releaseAmount },
+          availableBalance: { increment: releaseAmount }
+        }
+      });
+
+      // 3. Send Notification
+      await tx.notification.create({
+        data: {
+          userId: escrow.providerId,
+          content: JSON.stringify({
+            type: "payment",
+            title: "Escrow Released",
+            message: `₦${releaseAmount} has been released to your wallet from Escrow.`
+          }),
+          isRead: false
+        }
+      });
     });
 
     const released = {
-      escrowId: escrow._id,
+      escrowId: escrow.id,
       status: "completed",
-      releasedAt: escrow.completedAt,
+      releasedAt: new Date(),
     }
 
     return NextResponse.json(
@@ -49,6 +72,7 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     )
   } catch (error) {
+    console.error("Escrow release error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
 }

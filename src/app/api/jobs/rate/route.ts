@@ -1,16 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import connectToDB from "@/lib/db";
-import Rating from "@/models/rating";
-import User from "@/models/user";
-import JobRequest from "@/models/job-request";
+import { prisma } from "@/lib/prisma";
 import { withRole } from "@/lib/auth-middleware";
-import { sendNotification } from "@/lib/notifications";
 
 async function rateProvider(request: NextRequest, auth: any) {
   try {
-    await connectToDB();
     const body = await request.json();
-    const { jobRequestId, ratedUser, rating, review, communication, quality, timeliness } = body;
+    const { jobRequestId, ratedUser, rating, review } = body;
 
     if (!jobRequestId || !ratedUser || !rating) {
       return NextResponse.json(
@@ -20,7 +15,10 @@ async function rateProvider(request: NextRequest, auth: any) {
     }
 
     // Verify job is completed
-    const jobReq = await JobRequest.findById(jobRequestId);
+    const jobReq = await prisma.jobRequest.findUnique({
+      where: { id: jobRequestId }
+    });
+    
     if (!jobReq || jobReq.status !== "completed") {
       return NextResponse.json(
         { success: false, message: "Can only rate after job completion" },
@@ -29,7 +27,10 @@ async function rateProvider(request: NextRequest, auth: any) {
     }
 
     // Check if already rated
-    const existing = await Rating.findOne({ jobRequestId, ratedBy: auth.userId });
+    const existing = await prisma.rating.findFirst({
+      where: { jobRequestId, clientId: auth.userId }
+    });
+
     if (existing) {
       return NextResponse.json(
         { success: false, message: "You have already rated this job" },
@@ -37,39 +38,34 @@ async function rateProvider(request: NextRequest, auth: any) {
       );
     }
 
-    const newRating = new Rating({
-      jobRequestId,
-      ratedBy: auth.userId,
-      ratedUser,
-      rating,
-      review,
-      communication,
-      quality,
-      timeliness,
-    });
-    await newRating.save();
-
-    // Recalculate average rating for provider
-    const allRatings = await Rating.find({ ratedUser });
-    const totalScore = allRatings.reduce((sum, r) => sum + r.rating, 0);
-    const average = totalScore / allRatings.length;
-
-    await User.updateOne(
-      { _id: ratedUser },
-      {
-        $set: { rating: parseFloat(average.toFixed(1)), ratingCount: allRatings.length },
+    const newRating = await prisma.rating.create({
+      data: {
+        jobRequestId,
+        clientId: auth.userId,
+        providerId: ratedUser,
+        rating,
+        review,
       }
-    );
+    });
 
     // Notify provider
-    const client = await User.findById(auth.userId).select("firstName");
-    await sendNotification({
-      userId: ratedUser,
-      type: "rating",
-      title: "New Review Received",
-      message: `${client?.firstName || "A client"} gave you a ${rating}-star rating!`,
-      refModel: "Rating",
-      relatedId: newRating._id.toString(),
+    const client = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: { name: true }
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: ratedUser,
+        content: JSON.stringify({
+          type: "rating",
+          title: "New Review Received",
+          message: `${client?.name || "A client"} gave you a ${rating}-star rating!`,
+          jobRequestId,
+          ratingId: newRating.id
+        }),
+        isRead: false
+      }
     });
 
     return NextResponse.json(

@@ -22,7 +22,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // Ensure user role is PROFESSIONAL
     await prisma.user.update({
       where: { id: professional.userId },
-      data: { role: "PROFESSIONAL" }
+      data: { role: "PROFESSIONAL", verified: true }
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: professional.userId,
+        content: JSON.stringify({
+          title: "Account Verified!",
+          message: "Congratulations! Your professional business account has been approved and verified.",
+          type: "verification"
+        }),
+        isRead: false
+      }
     });
 
     return NextResponse.json(

@@ -1,18 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import connectToDB from "@/lib/db";
-import Transaction from "@/models/transaction";
-import Wallet from "@/models/wallet";
-import Escrow from "@/models/escrow";
-import JobRequest from "@/models/job-request";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Webhook endpoint for Monify payment callbacks
  */
 export async function POST(request: NextRequest) {
   try {
-    await connectToDB();
-
     const body = await request.json();
     const signature = request.headers.get("x-monify-signature");
     const secret = process.env.MONIFY_SECRET_KEY || "";
@@ -29,79 +23,101 @@ export async function POST(request: NextRequest) {
 
     if (event === "charge.success" || event === "SUCCESSFUL_TRANSACTION") {
       const reference = data.reference || data.paymentReference;
-      const transaction = await Transaction.findOne({ transactionId: reference });
+      
+      const transaction = await prisma.transaction.findUnique({
+        where: { transactionId: reference }
+      });
 
       if (transaction && transaction.status === "pending") {
-        transaction.status = "completed";
-        await transaction.save();
-
-        // Escrow Logic
-        if (transaction.description.includes("job request")) {
-          // It's a job payment
-          // 1. Calculate fees and advances
-          const totalAmount = transaction.amount;
-          const platformFee = totalAmount * 0.06;
-          const providerAdvance = totalAmount * 0.30;
-          const remainingEscrow = totalAmount - platformFee - providerAdvance;
-
-          // Find the related JobRequest to know the provider
-          // We stored jobRequestId in the init logic (metadata, or transaction description)
-          // Actually, let's extract it safely; we assume transaction has jobRequestId
-          const jobRequestId = transaction.jobRequestId;
+        // Find the related JobRequest to know the provider
+        const jobRequestId = transaction.jobRequestId;
+        
+        if (jobRequestId && transaction.description?.includes("job request")) {
+          const jobReq = await prisma.jobRequest.findUnique({
+            where: { id: jobRequestId }
+          });
           
-          if (jobRequestId) {
-            const jobReq = await JobRequest.findById(jobRequestId);
-            
-            if (jobReq) {
-              // 2. Create Escrow Document
-              const newEscrow = new Escrow({
-                jobRequestId: jobReq._id,
-                client: jobReq.client,
-                provider: jobReq.provider,
-                amount: remainingEscrow,
-                platformFee,
-                providerAdvance,
-                status: "held",
-                monifyReference: reference,
-                advanceReleasedAt: new Date(),
+          if (jobReq) {
+            const totalAmount = transaction.amount;
+            const platformFee = totalAmount * 0.06;
+            const providerAdvance = totalAmount * 0.30;
+            const remainingEscrow = totalAmount - platformFee - providerAdvance;
+
+            // Execute atomic transaction for webhook handling
+            await prisma.$transaction(async (tx) => {
+              // 1. Mark transaction as completed
+              const updatedTx = await tx.transaction.update({
+                where: { id: transaction.id },
+                data: { status: "completed" }
               });
-              await newEscrow.save();
 
-              transaction.escrowId = newEscrow._id;
-              await transaction.save();
+              // 2. Create Escrow Document
+              const newEscrow = await tx.escrow.create({
+                data: {
+                  jobRequestId: jobReq.id,
+                  clientId: jobReq.clientId,
+                  providerId: jobReq.providerId,
+                  amount: remainingEscrow,
+                  platformFee,
+                  providerAdvance,
+                  status: "held",
+                  monifyReference: reference,
+                  advanceReleasedAt: new Date(),
+                }
+              });
 
-              // 3. Add the 30% advance to Provider's Wallet
-              const providerWallet = await Wallet.findOne({ userId: jobReq.provider });
-              if (providerWallet) {
-                providerWallet.availableBalance = (providerWallet.availableBalance || 0) + providerAdvance;
-                providerWallet.lockedBalance = (providerWallet.lockedBalance || 0) + remainingEscrow;
-                await providerWallet.save();
-              } else {
-                // Create wallet if it doesn't exist
-                const newWallet = new Wallet({
-                  userId: jobReq.provider,
+              // 3. Link escrow to transaction
+              await tx.transaction.update({
+                where: { id: transaction.id },
+                data: { escrowId: newEscrow.id }
+              });
+
+              // 4. Update or create the Provider's Wallet
+              await tx.wallet.upsert({
+                where: { userId: jobReq.providerId },
+                update: {
+                  availableBalance: { increment: providerAdvance },
+                  escrowBalance: { increment: remainingEscrow },
+                  totalEarned: { increment: providerAdvance }
+                },
+                create: {
+                  userId: jobReq.providerId,
                   availableBalance: providerAdvance,
-                  lockedBalance: remainingEscrow,
-                });
-                await newWallet.save();
-              }
+                  escrowBalance: remainingEscrow,
+                  totalEarned: providerAdvance,
+                  totalSpent: 0
+                }
+              });
 
-              // Update JobRequest totalAmount
-              jobReq.totalAmount = totalAmount;
-              await jobReq.save();
-            }
+              // 5. Update JobRequest negotiated budget
+              await tx.jobRequest.update({
+                where: { id: jobReq.id },
+                data: { negotiatedBudget: totalAmount }
+              });
+            });
           }
+        } else {
+          // It's a non-job payment, just mark as completed
+          await prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { status: "completed" }
+          });
         }
       }
 
       return NextResponse.json({ success: true, message: "Payment processed" }, { status: 200 });
     } else if (event === "charge.failed" || event === "FAILED_TRANSACTION") {
       const reference = data.reference || data.paymentReference;
-      const transaction = await Transaction.findOne({ transactionId: reference });
+      
+      const transaction = await prisma.transaction.findUnique({
+        where: { transactionId: reference }
+      });
 
       if (transaction && transaction.status === "pending") {
-        transaction.status = "failed";
-        await transaction.save();
+        await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { status: "failed" }
+        });
       }
       return NextResponse.json({ success: true, message: "Failure recorded" }, { status: 200 });
     }
