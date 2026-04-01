@@ -66,8 +66,7 @@ export default function CommentsDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          userName: `${user.firstName} ${user.lastName}`,
-          userRole: user.role,
+          userName: user.name,
           text: commentText.trim(),
         }),
       })

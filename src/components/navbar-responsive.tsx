@@ -71,7 +71,8 @@ export function NavbarResponsive() {
 
   const navItems = [
     { label: "Home", href: "/", icon: Home },
-    { label: "Find Providers", href: "/providers", icon: Users },
+    ...(user?.role !== "PROFESSIONAL" ? [{ label: "Find Providers", href: "/providers", icon: Users }] : []),
+    ...(user?.role !== "USER" ? [{ label: "Find Jobs", href: "/jobs", icon: Folders }] : []),
     { label: "Categories", href: "/categories", icon: Folders },
     { label: "About Us", href: "/about", icon: Info },
   ];

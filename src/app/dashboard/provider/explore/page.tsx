@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { motion } from "framer-motion"
+import { useSearchParams } from "next/navigation"
 import { Search, MapPin, Calendar, Clock, DollarSign, Send } from "lucide-react"
 import { toast } from "sonner"
 import { useForm } from "react-hook-form"
@@ -35,6 +36,22 @@ const proposalSchema = z.object({
 })
 
 export default function ExploreJobsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 space-y-6 max-w-6xl mx-auto animate-pulse">
+      <div className="h-10 w-48 bg-muted rounded"></div>
+      <div className="h-4 w-64 bg-muted rounded"></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-64 bg-muted rounded-xl"></div>
+        ))}
+      </div>
+    </div>}>
+      <ExploreJobsContent />
+    </Suspense>
+  )
+}
+
+function ExploreJobsContent() {
   const [jobs, setJobs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -61,6 +78,15 @@ export default function ExploreJobsPage() {
   useEffect(() => {
     fetchOpenJobs()
   }, [])
+
+  const searchParams = useSearchParams()
+  const categoryFromUrl = searchParams.get("category")
+
+  useEffect(() => {
+    if (categoryFromUrl) {
+      setFilterCategory(categoryFromUrl)
+    }
+  }, [categoryFromUrl])
 
   const filteredJobs = jobs.filter((job) => {
     // text search

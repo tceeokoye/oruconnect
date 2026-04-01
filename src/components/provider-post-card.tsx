@@ -32,7 +32,7 @@ export default function ProviderPostCard({
       setLikeCount(prev => prevLiked ? prev - 1 : prev + 1);
       onLike?.();
 
-      const response = await fetch(`/api/posts/${post.id}/interact`, {
+      const response = await fetch(`/api/posts/${post.id}/like`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: prevLiked ? "unlike" : "like" })
@@ -168,12 +168,12 @@ export default function ProviderPostCard({
         isOpen={showShare}
         onClose={() => setShowShare(false)}
         postId={post.id}
-        onShare={() => {
+        onShare={(platform) => {
           setShareCount(prev => prev + 1);
-          fetch(`/api/posts/${post.id}/interact`, {
+          fetch(`/api/posts/${post.id}/share`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "share" })
+            body: JSON.stringify({ platform, userId: "current_user" }) // Backend can get userId from auth token anyway
           }).catch(console.error);
         }}
       />

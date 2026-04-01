@@ -9,7 +9,7 @@ interface ShareModalProps {
   isOpen: boolean
   onClose: () => void
   postId: string
-  onShare?: () => void
+  onShare?: (platform: string) => void
 }
 
 export default function ShareModal({ isOpen, onClose, postId, onShare }: ShareModalProps) {
@@ -23,7 +23,7 @@ export default function ShareModal({ isOpen, onClose, postId, onShare }: ShareMo
       setCopied(true)
       toast.success("Link copied to clipboard!")
       setTimeout(() => setCopied(false), 2000)
-      onShare?.()
+      onShare?.("copy")
     } catch (error) {
       toast.error("Failed to copy link")
     }
@@ -43,7 +43,7 @@ export default function ShareModal({ isOpen, onClose, postId, onShare }: ShareMo
       action: () => {
         const text = `Check out this post: ${postUrl}`
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank")
-        onShare?.()
+        onShare?.("whatsapp")
       },
     },
     {
@@ -56,7 +56,7 @@ export default function ShareModal({ isOpen, onClose, postId, onShare }: ShareMo
           `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(postUrl)}`,
           "_blank",
         )
-        onShare?.()
+        onShare?.("twitter")
       },
     },
     {
@@ -65,7 +65,7 @@ export default function ShareModal({ isOpen, onClose, postId, onShare }: ShareMo
       icon: Share2,
       action: () => {
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`, "_blank")
-        onShare?.()
+        onShare?.("facebook")
       },
     },
   ]

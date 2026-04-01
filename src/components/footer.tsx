@@ -1,12 +1,28 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
+import { useSelector } from "react-redux"
+import type { RootState } from "@/store"
 
 import LogoIcon from "@/assets/logo/Artboardwhite.svg"
 import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
 import LogoTextColor from "@/assets/logo/ORUCONNECT.svg"
 
 export function Footer() {
+  const user = useSelector((state: RootState) => state.auth.user);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <footer className="border-t border-border bg-background mt-20 h-64" />;
+  }
+
   return (
     <footer className="border-t border-border bg-background mt-20">
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -45,11 +61,20 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-3">Platform</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/providers" className="text-muted-foreground hover:text-foreground">
-                  Find Providers
-                </Link>
-              </li>
+              {(user?.role !== "PROFESSIONAL") && (
+                <li>
+                  <Link href="/providers" className="text-muted-foreground hover:text-foreground">
+                    Find Providers
+                  </Link>
+                </li>
+              )}
+              {(user?.role !== "USER") && (
+                <li>
+                  <Link href="/jobs" className="text-muted-foreground hover:text-foreground">
+                    Find Jobs
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link href="/categories" className="text-muted-foreground hover:text-foreground">
                   Categories

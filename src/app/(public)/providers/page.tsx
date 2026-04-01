@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useSelector } from "react-redux"
+import type { RootState } from "@/store"
 import { motion } from "framer-motion"
 import { Search, Filter, MapPin, Star, Shield, ChevronDown, Loader2 } from "lucide-react"
 import { NIGERIAN_STATES } from "@/lib/constants/nigerian-states"
@@ -16,6 +19,15 @@ export default function ProvidersPage() {
   const [selectedState, setSelectedState] = useState("")
   const [selectedCity, setSelectedCity] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+
+  const user = useSelector((state: RootState) => state.auth.user)
+  const router = useRouter()
+
+  useEffect(() => {
+    if (user?.role === "PROFESSIONAL") {
+      router.replace("/jobs")
+    }
+  }, [user, router])
 
   useEffect(() => {
     async function fetchProviders() {

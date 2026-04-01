@@ -11,8 +11,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import NotificationBell from "@/components/notification-bell";
 import { useEffect } from "react";
 import LogoIcon from "@/assets/logo/Artboardwhite.svg"
-import LogoTextWhite from "@/assets/logo/ORUCONNECT WHITE.svg"
-import LogoTextColor from "@/assets/logo/ORUCONNECT.svg"
+import LogoText from "@/assets/logo/ORUCONNECT WHITE.svg"
+import LogoTextcolored from "@/assets/logo/ORUCONNECT.svg"
+
 
 import { tokenActions } from "@/store/slices/auth-slice";
 
@@ -49,11 +50,12 @@ export function Navbar() {
   }, [mobileOpen]);
 
   const getRoleDisplay = (role: string): string => {
+    if (role.endsWith("ADMIN")) {
+      return role.replace(/_/g, " ").toLowerCase().split(' ').map(s => s.charAt(0).toUpperCase() + s.substring(1)).join(' ');
+    }
     const roleMap: Record<string, string> = {
       USER: "Client",
       PROFESSIONAL: "Service Provider",
-      SUPER_ADMIN: "Super Admin",
-      OPERATIONS_ADMIN: "Operations",
     };
     return roleMap[role] || role;
   };
@@ -75,30 +77,34 @@ export function Navbar() {
             className="flex items-center gap-2"
           >
             <div className="w-8 h-8 rounded-full bg-primary md:hidden flex items-center justify-center text-primary-foreground font-bold">
-             <Image src={LogoIcon} alt="logo" height={32} width={24}/>
+             < Image src={LogoIcon} alt="logo" height={32} width={24}/>
             </div>
-            
-            <div className="dark:hidden block">
-              <Image src={LogoTextColor} alt="OruConnect Logo" height={32} width={153.3}/>
-            </div>
-            <div className="hidden dark:block">
-              <Image src={LogoTextWhite} alt="OruConnect Logo" height={32} width={153.3}/>
-            </div>
+            < Image src={LogoText} alt="logo" height={32} width={153.3}/>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            <Link
-              href="/providers"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Find Providers
-            </Link>
+            {(user?.role !== "PROFESSIONAL") && (
+              <Link
+                href="/providers"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Find Providers
+              </Link>
+            )}
+            {(user?.role !== "USER") && (
+              <Link
+                href="/jobs"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Find Jobs
+              </Link>
+            )}
             <Link
               href="/categories"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Categories
+              {user?.role === "PROFESSIONAL" ? "Job Categories" : "Categories"}
             </Link>
             <Link
               href="/about"
@@ -123,17 +129,21 @@ export function Navbar() {
                 </div>
                 <button
                   onClick={() => {
-                    const dashRoutes: Record<string, string> = {
-                      PROFESSIONAL: "/dashboard/provider",
-                      SUPER_ADMIN: "/admin/dashboard",
-                      OPERATIONS_ADMIN: "/admin/dashboard",
-                      USER: "/dashboard/client/jobs",
-                    };
-                    router.push(dashRoutes[user.role] || "/");
+                    const isAdmin = user.role.endsWith("ADMIN");
+                    if (isAdmin) {
+                      router.push("/admin/dashboard");
+                    } else {
+                      const dashRoutes: Record<string, string> = {
+                        PROFESSIONAL: "/dashboard/provider",
+                        USER: "/dashboard/client/jobs",
+                      };
+                      router.push(dashRoutes[user.role] || "/");
+                    }
                   }}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors"
+                  className="p-2 flex items-center gap-2 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                 >
                   <LayoutDashboard className="w-5 h-5" />
+                  <span className="hidden lg:inline">Dashboard</span>
                 </button>
                 <button
                   onClick={handleLogout}
@@ -187,17 +197,27 @@ export function Navbar() {
               className="md:hidden overflow-hidden border-t border-border bg-background"
             >
               <div className="p-4 space-y-4">
-                <Link
-                  href="/providers"
-                  className="block text-muted-foreground hover:text-foreground"
-                >
-                  Find Providers
-                </Link>
+                {(user?.role !== "PROFESSIONAL") && (
+                  <Link
+                    href="/providers"
+                    className="block text-muted-foreground hover:text-foreground"
+                  >
+                    Find Providers
+                  </Link>
+                )}
+                {(user?.role !== "USER") && (
+                  <Link
+                    href="/jobs"
+                    className="block text-muted-foreground hover:text-foreground"
+                  >
+                    Find Jobs
+                  </Link>
+                )}
                 <Link
                   href="/categories"
                   className="block text-muted-foreground hover:text-foreground"
                 >
-                  Categories
+                  {user?.role === "PROFESSIONAL" ? "Job Categories" : "Categories"}
                 </Link>
                 <Link
                   href="/about"
@@ -211,13 +231,16 @@ export function Navbar() {
                     <p className="font-semibold">{user.name}</p>
                     <button
                       onClick={() => {
-                        const dashRoutes: Record<string, string> = {
-                          PROFESSIONAL: "/dashboard/provider",
-                          SUPER_ADMIN: "/admin/dashboard",
-                          OPERATIONS_ADMIN: "/admin/dashboard",
-                          USER: "/dashboard/client/jobs",
-                        };
-                        router.push(dashRoutes[user.role] || "/");
+                        const isAdmin = user.role.endsWith("ADMIN");
+                        if (isAdmin) {
+                          router.push("/admin/dashboard");
+                        } else {
+                          const dashRoutes: Record<string, string> = {
+                            PROFESSIONAL: "/dashboard/provider",
+                            USER: "/dashboard/client/jobs",
+                          };
+                          router.push(dashRoutes[user.role] || "/");
+                        }
                         setMobileOpen(false);
                       }}
                       className="w-full text-left px-4 py-2 hover:bg-muted rounded transition-colors"

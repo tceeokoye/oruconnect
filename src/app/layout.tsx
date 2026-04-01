@@ -22,6 +22,10 @@ export const metadata: Metadata = {
     "Discover and connect with verified service providers in Nigeria. Secure, escrow-based marketplace for trusted services.",
   keywords: "Nigeria, business, services, verified, trusted, escrow, marketplace",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 }
 
 export const viewport = {

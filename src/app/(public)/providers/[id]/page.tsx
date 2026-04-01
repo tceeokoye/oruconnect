@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, MapPin, Star, Shield, Phone, Mail, Globe, MessageCircle, ArrowRight, Loader2, CheckCircle } from "lucide-react"
 import { useState, use, useEffect } from "react"
+import type { RootState } from "@/store"
 
 export default function ProviderProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -16,10 +17,11 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
   
   const [provider, setProvider] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const { user } = useSelector((state: RootState) => state.auth)
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    name: user?.name || "",
+    email: user?.email || "",
     phone: "",
     budget: "",
     description: "",
@@ -44,22 +46,43 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
   }, [resolvedParams.id])
 
   const handleInquiry = () => {
+    if (!user) {
+      router.push(`/auth/login?redirect=/providers/${resolvedParams.id}`)
+      return
+    }
     setShowInquiryModal(true)
   }
 
   const handleSubmitInquiry = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    // Simulate API request to category admin
-    setTimeout(() => {
+    
+    try {
+      const response = await fetch(`/api/providers/${resolvedParams.id}/inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          clientId: user?.id,
+        })
+      });
+
+      if (response.ok) {
+        setIsSuccess(true)
+        setTimeout(() => {
+          setShowInquiryModal(false)
+          setIsSuccess(false)
+          setFormData({ name: user?.name || "", email: user?.email || "", phone: "", budget: "", description: "", timeline: "" })
+        }, 3000)
+      } else {
+        const err = await response.json();
+        console.error("Booking error:", err.message);
+      }
+    } catch (error) {
+      console.error("Failed to send inquiry:", error)
+    } finally {
       setIsSubmitting(false)
-      setIsSuccess(true)
-      setTimeout(() => {
-        setShowInquiryModal(false)
-        setIsSuccess(false)
-        setFormData({ name: "", email: "", phone: "", budget: "", description: "", timeline: "" })
-      }, 3000)
-    }, 1500)
+    }
   }
 
   if (loading) {

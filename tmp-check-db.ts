@@ -1,15 +1,16 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from './src/lib/prisma';
 
 async function main() {
-  const profs = await prisma.professional.findMany({
-    include: {
-      user: true,
-      category: true
-    }
-  });
-  console.dir(profs, { depth: null });
+  const catCount = await prisma.category.count();
+  const jobCount = await prisma.job.count();
+  const profCount = await prisma.professional.count();
+  
+  console.log('Category Count:', catCount);
+  console.log('Job Count:', jobCount);
+  console.log('Professional Count:', profCount);
+
+  const categories = await prisma.category.findMany();
+  console.log('Categories:', categories);
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+main().finally(() => prisma.$disconnect());
